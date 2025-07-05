@@ -286,24 +286,39 @@ def generate_cover_letter(
     req: CoverLetterRequest,
     db: Session = Depends(get_db)
 ):
-    # Get user's CV data from uploaded documents
-    cv_doc = db.query(Document).filter(Document.document_type == "cv").order_by(Document.uploaded_at.desc()).first()
-    if not cv_doc:
-        raise HTTPException(status_code=400, detail="No CV uploaded. Please upload your CV first.")
+    """Generate a single cover letter using the same RAG+LLM workflow as batch generation."""
     
-    # Extract experiences from CV parsed data
-    cv_data = cv_doc.parsed_data if isinstance(cv_doc.parsed_data, dict) else {}
-    experiences = cv_data.get("experiences", [])
+    # --- RAG+LLM Consistency: Gather all CVs and cover letters (same as batch) ---
+    cv_docs = db.query(Document).filter(Document.document_type == "cv").order_by(Document.uploaded_at.desc()).all()
+    all_experiences = []
+    for idx, doc in enumerate(cv_docs):
+        parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
+        exps = parsed.get("experiences", [])
+        # Weight: duplicate recent experiences for more weight
+        weight = max(1, len(cv_docs) - idx)  # Most recent gets highest weight
+        all_experiences.extend(exps * weight)
     
-    # Get writing style from previous cover letters
-    prev_cover = db.query(Document).filter(Document.document_type == "cover_letter").order_by(Document.uploaded_at.desc()).first()
+    # Writing style: merge/average from all cover letters, more weight to recent
+    cover_docs = db.query(Document).filter(Document.document_type == "cover_letter").order_by(Document.uploaded_at.desc()).all()
     writing_style = {}
-    if prev_cover and prev_cover.parsed_data:
-        if isinstance(prev_cover.parsed_data, dict):
-            writing_style = prev_cover.parsed_data.get("writing_style", {})
+    for idx, doc in enumerate(cover_docs):
+        parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
+        style = parsed.get("writing_style", {})
+        weight = max(1, len(cover_docs) - idx)
+        for k, v in style.items():
+            if k not in writing_style:
+                writing_style[k] = []
+            writing_style[k].extend([v] * weight)
+    
+    # Average/merge writing style fields
+    merged_style = {}
+    for k, vlist in writing_style.items():
+        if all(isinstance(v, (int, float)) for v in vlist):
+            merged_style[k] = sum(vlist) / len(vlist)
+        elif all(isinstance(v, str) for v in vlist):
+            merged_style[k] = max(set(vlist), key=vlist.count)
         else:
-            # Handle case where parsed_data might be a string or other type
-            writing_style = {}
+            merged_style[k] = vlist[0] if vlist else None
     
     # Handle company research based on user preference
     company_info = {}
@@ -336,18 +351,19 @@ def generate_cover_letter(
                 # Continue without company research
                 company_info = {}
     
-    # Generate cover letter
+    # Generate cover letter using the same logic as batch generation
     generator = CoverLetterGenerator(db, llm_service)
     content = generator.generate_cover_letter(
         job_title=req.job_title,
         company_name=req.company_name,
         job_description=req.job_description,
         company_info=company_info,
-        user_experiences=experiences,  # Now using actual CV data
-        writing_style=writing_style,
+        user_experiences=all_experiences,  # Using recency-weighted experiences from all CVs
+        writing_style=merged_style,  # Using merged writing style from all cover letters
         tone=req.tone or "professional",
-        include_company_research=req.include_company_research
+        include_company_research=req.include_company_research or False
     )
+    
     cover = CoverLetter(
         job_title=req.job_title,
         company_name=req.company_name,
@@ -355,7 +371,7 @@ def generate_cover_letter(
         generated_content=content,
         company_research=company_info,
         used_experiences=[],  # Empty since we're using CV data directly
-        writing_style_analysis=writing_style
+        writing_style_analysis=merged_style
     )
     db.add(cover)
     db.commit()
@@ -467,7 +483,48 @@ def get_cover_letter_content(cover_letter_id: int, db: Session = Depends(get_db)
         "job_title": cover_letter.job_title,
         "company_name": cover_letter.company_name,
         "generated_at": cover_letter.generated_at,
-        "generated_content": cover_letter.generated_content
+        "generated_content": cover_letter.generated_content,
+        "company_research": cover_letter.company_research
+    }
+
+@router.get("/experience/{experience_id}")
+def get_experience_content(experience_id: int, db: Session = Depends(get_db)):
+    """Get full content of a specific experience"""
+    experience = db.query(Experience).filter(Experience.id == experience_id).first()
+    if not experience:
+        raise HTTPException(status_code=404, detail="Experience not found")
+    
+    return {
+        "id": experience.id,
+        "title": experience.title,
+        "company": experience.company,
+        "start_date": experience.start_date,
+        "end_date": experience.end_date,
+        "description": experience.description,
+        "skills": experience.skills,
+        "location": experience.location,
+        "is_current": experience.is_current,
+        "weight": experience.weight,
+        "created_at": experience.created_at
+    }
+
+@router.get("/company-research/{research_id}")
+def get_company_research_content(research_id: int, db: Session = Depends(get_db)):
+    """Get full content of a specific company research entry"""
+    research = db.query(CompanyResearch).filter(CompanyResearch.id == research_id).first()
+    if not research:
+        raise HTTPException(status_code=404, detail="Company research not found")
+    
+    return {
+        "id": research.id,
+        "company_name": research.company_name,
+        "website": research.website,
+        "description": research.description,
+        "industry": research.industry,
+        "size": research.size,
+        "location": research.location,
+        "researched_at": research.researched_at,
+        "research_data": research.research_data
     }
 
 @router.get("/documents-by-type/{document_type}")
@@ -961,6 +1018,7 @@ def batch_cover_letters(
                 company_name=job_info["company_name"],
                 job_description=job_info["job_description"],
                 generated_content=cover_letter_content,
+                company_research=company_info,  # Save the company research data
                 generated_at=datetime.now()
             )
             db.add(cover_letter)

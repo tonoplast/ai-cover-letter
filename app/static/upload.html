@@ -1754,6 +1754,249 @@
             }
         }
 
+        async function viewItem(type, id) {
+            try {
+                let endpoint = '';
+                let title = '';
+                
+                switch (type) {
+                    case 'document':
+                        endpoint = `/document/${id}`;
+                        title = 'Document Details';
+                        break;
+                    case 'cover_letter':
+                        endpoint = `/cover-letter/${id}`;
+                        title = 'Cover Letter Details';
+                        break;
+                    case 'experience':
+                        endpoint = `/experience/${id}`;
+                        title = 'Experience Details';
+                        break;
+                    case 'company_research':
+                        endpoint = `/company-research/${id}`;
+                        title = 'Company Research Details';
+                        break;
+                    default:
+                        showStatus(`❌ Unknown item type: ${type}`, 'error');
+                        return;
+                }
+
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    const result = await response.json();
+                    showStatus(`❌ Failed to load data: ${result.detail}`, 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                showModal(title, data, type);
+            } catch (error) {
+                showStatus(`❌ Failed to load data: ${error.message}`, 'error');
+            }
+        }
+
+        function showModal(title, data, type) {
+            document.getElementById('modalTitle').textContent = title;
+            const modalData = document.getElementById('modalData');
+            
+            let html = '';
+            
+            switch (type) {
+                case 'document':
+                    html = formatDocumentData(data);
+                    break;
+                case 'cover_letter':
+                    html = formatCoverLetterData(data);
+                    break;
+                case 'experience':
+                    html = formatExperienceData(data);
+                    break;
+                case 'company_research':
+                    html = formatCompanyResearchData(data);
+                    break;
+                default:
+                    html = formatGenericData(data);
+            }
+            
+            modalData.innerHTML = html;
+            document.getElementById('dataModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('dataModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('dataModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        function formatDocumentData(data) {
+            return `
+                <div class="data-section">
+                    <h4>📄 Document Information</h4>
+                    <div class="data-field">
+                        <label>Filename:</label>
+                        <div class="value">${data.filename || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Document Type:</label>
+                        <div class="value">${data.document_type || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Uploaded At:</label>
+                        <div class="value">${data.uploaded_at || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>File Path:</label>
+                        <div class="value">${data.file_path || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="data-section">
+                    <h4>📝 Content Preview</h4>
+                    <div class="data-field">
+                        <label>Content (first 500 characters):</label>
+                        <div class="value">${(data.content || 'No content').substring(0, 500)}${(data.content || '').length > 500 ? '...' : ''}</div>
+                    </div>
+                </div>
+                <div class="data-section">
+                    <h4>🔍 Parsed Data</h4>
+                    <div class="data-field">
+                        <label>Parsed Data:</label>
+                        <div class="value json">${JSON.stringify(data.parsed_data || {}, null, 2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatCoverLetterData(data) {
+            return `
+                <div class="data-section">
+                    <h4>📝 Cover Letter Information</h4>
+                    <div class="data-field">
+                        <label>Job Title:</label>
+                        <div class="value">${data.job_title || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Company Name:</label>
+                        <div class="value">${data.company_name || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Generated At:</label>
+                        <div class="value">${data.generated_at || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="data-section">
+                    <h4>📄 Cover Letter Content</h4>
+                    <div class="data-field">
+                        <label>Generated Content:</label>
+                        <div class="value">${data.generated_content || 'No content'}</div>
+                    </div>
+                </div>
+                <div class="data-section">
+                    <h4>🏢 Company Research Used</h4>
+                    <div class="data-field">
+                        <label>Company Research Data:</label>
+                        <div class="value json">${JSON.stringify(data.company_research || {}, null, 2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatExperienceData(data) {
+            return `
+                <div class="data-section">
+                    <h4>💼 Experience Information</h4>
+                    <div class="data-field">
+                        <label>Title:</label>
+                        <div class="value">${data.title || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Company:</label>
+                        <div class="value">${data.company || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Start Date:</label>
+                        <div class="value">${data.start_date || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>End Date:</label>
+                        <div class="value">${data.end_date || 'Present'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Description:</label>
+                        <div class="value">${data.description || 'No description'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Skills:</label>
+                        <div class="value">${(data.skills || []).join(', ') || 'No skills listed'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Location:</label>
+                        <div class="value">${data.location || 'N/A'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatCompanyResearchData(data) {
+            return `
+                <div class="data-section">
+                    <h4>🏢 Company Research Information</h4>
+                    <div class="data-field">
+                        <label>Company Name:</label>
+                        <div class="value">${data.company_name || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Researched At:</label>
+                        <div class="value">${data.researched_at || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Website:</label>
+                        <div class="value">${data.website || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Industry:</label>
+                        <div class="value">${data.industry || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Size:</label>
+                        <div class="value">${data.size || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Location:</label>
+                        <div class="value">${data.location || 'N/A'}</div>
+                    </div>
+                    <div class="data-field">
+                        <label>Description:</label>
+                        <div class="value">${data.description || 'No description'}</div>
+                    </div>
+                </div>
+                <div class="data-section">
+                    <h4>🔍 Detailed Research Data</h4>
+                    <div class="data-field">
+                        <label>Complete Research Data:</label>
+                        <div class="value json">${JSON.stringify(data.research_data || {}, null, 2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatGenericData(data) {
+            return `
+                <div class="data-section">
+                    <h4>📊 Data Details</h4>
+                    <div class="data-field">
+                        <label>Raw Data:</label>
+                        <div class="value json">${JSON.stringify(data, null, 2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
         async function deleteSelectedItems() {
             const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked:not([id^="selectAll"])');
             
