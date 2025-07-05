@@ -525,6 +525,102 @@
             border-bottom: 1px solid white;
             margin-bottom: -1px;
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            background-color: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .data-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .data-section h4 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .data-field {
+            margin-bottom: 10px;
+        }
+        .data-field label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .data-field .value {
+            background-color: white;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .data-field .value.json {
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .view-item-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .view-item-btn:hover {
+            background: #138496;
+        }
     </style>
 </head>
 <body>
@@ -579,6 +675,7 @@
                         <option value="">Auto (Best Available)</option>
                         <option value="tavily">Tavily AI (Recommended)</option>
                         <option value="google">Google AI</option>
+                        <option value="brave">Brave Search (Privacy-focused)</option>
                         <option value="yacy">YaCy (Self-hosted)</option>
                         <option value="searxng">SearXNG (Self-hosted)</option>
                         <option value="duckduckgo">DuckDuckGo (Free)</option>
@@ -607,6 +704,13 @@
                         <option value="formal">Formal</option>
                         <option value="conversational">Conversational</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="includeCompanyResearch" checked style="width: auto; margin: 0;">
+                        Include Company Research
+                    </label>
+                    <small style="color: #666;">When enabled, the AI will research the company and include relevant information (mission, values, industry) in your cover letter. Only includes information that can be verified.</small>
                 </div>
                 <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
                 <div id="coverLetterPreview"></div>
@@ -639,6 +743,13 @@
                     <label for="batchDelay">Delay between jobs (seconds):</label>
                     <input type="number" id="batchDelay" value="3" min="1" max="10" style="width: 100px;">
                     <small style="color: #666;">Higher values reduce chance of being blocked, but take longer</small>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="batchIncludeCompanyResearch" checked style="width: auto; margin: 0;">
+                        Include Company Research (Batch)
+                    </label>
+                    <small style="color: #666;">When enabled, the AI will research each company and include relevant information in cover letters.</small>
                 </div>
                 <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
                 <div id="batchStatus"></div>
@@ -738,6 +849,19 @@
         </div>
 
         <div id="status"></div>
+    </div>
+
+    <!-- Data View Modal -->
+    <div id="dataModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">View Data</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="modalData"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -962,6 +1086,7 @@
                             <li>Tavily: ${data.rate_limits.tavily}</li>
                             <li>YaCy: ${data.rate_limits.yacy}</li>
                             <li>SearXNG: ${data.rate_limits.searxng}</li>
+                            <li>Brave Search: ${data.rate_limits.brave || '20 requests per minute'}</li>
                         </ul>
                     </div>
                 `;
@@ -975,6 +1100,7 @@
             const companyName = document.getElementById('companyName').value.trim();
             const jobDescription = document.getElementById('jobDescription').value.trim();
             const tone = document.getElementById('tone').value;
+            const includeCompanyResearch = document.getElementById('includeCompanyResearch').checked;
 
             if (!jobTitle || !companyName || !jobDescription) {
                 showStatus('❌ Please fill in all required fields', 'error');
@@ -993,7 +1119,8 @@
                         job_title: jobTitle,
                         company_name: companyName,
                         job_description: jobDescription,
-                        tone: tone
+                        tone: tone,
+                        include_company_research: includeCompanyResearch
                     })
                 });
 
@@ -1072,7 +1199,8 @@
                                     <strong>${doc.filename}</strong> (${doc.document_type}) - ${doc.uploaded_at}
                                 </div>
                                 <div class="database-item-actions">
-                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">Delete</button>
+                                    <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
+                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">🗑️ Delete</button>
                                 </div>
                             </div>
                         `;
@@ -1089,7 +1217,8 @@
                                     <strong>${cl.job_title}</strong> at ${cl.company_name} - ${cl.generated_at}
                                 </div>
                                 <div class="database-item-actions">
-                                    <button class="delete-item-btn" onclick="deleteItem('cover_letter', ${cl.id})">Delete</button>
+                                    <button class="view-item-btn" onclick="viewItem('cover_letter', ${cl.id})">👁️ View</button>
+                                    <button class="delete-item-btn" onclick="deleteItem('cover_letter', ${cl.id})">🗑️ Delete</button>
                                 </div>
                             </div>
                         `;
@@ -1106,7 +1235,8 @@
                                     <strong>${exp.title}</strong> at ${exp.company} - ${exp.start_date}
                                 </div>
                                 <div class="database-item-actions">
-                                    <button class="delete-item-btn" onclick="deleteItem('experience', ${exp.id})">Delete</button>
+                                    <button class="view-item-btn" onclick="viewItem('experience', ${exp.id})">👁️ View</button>
+                                    <button class="delete-item-btn" onclick="deleteItem('experience', ${exp.id})">🗑️ Delete</button>
                                 </div>
                             </div>
                         `;
@@ -1123,7 +1253,8 @@
                                     <strong>${cr.company_name}</strong> - ${cr.researched_at}
                                 </div>
                                 <div class="database-item-actions">
-                                    <button class="delete-item-btn" onclick="deleteItem('company_research', ${cr.id})">Delete</button>
+                                    <button class="view-item-btn" onclick="viewItem('company_research', ${cr.id})">👁️ View</button>
+                                    <button class="delete-item-btn" onclick="deleteItem('company_research', ${cr.id})">🗑️ Delete</button>
                                 </div>
                             </div>
                         `;
@@ -1800,6 +1931,7 @@
             const jobDescription = document.getElementById('batchJobDescription').value.trim();
             const tone = document.getElementById('batchTone').value;
             const delay = parseInt(document.getElementById('batchDelay').value) || 3;
+            const includeCompanyResearch = document.getElementById('batchIncludeCompanyResearch').checked;
             
             if (!websitesRaw) {
                 showStatus('❌ Please enter at least one job ad URL', 'error', 'batchStatus');
@@ -1817,7 +1949,8 @@
                         job_description: jobDescription,
                         tone: tone,
                         websites: websites,
-                        delay_seconds: delay
+                        delay_seconds: delay,
+                        include_company_research: includeCompanyResearch
                     })
                 });
                 const result = await response.json();

@@ -12,8 +12,8 @@ class CoverLetterGenerator:
         self.llm = llm_service
         self.rag_service = RAGService(db)
 
-    def generate_cover_letter(self, job_title: str, company_name: str, job_description: str, company_info: Dict[str, Any], user_experiences: List[Experience], writing_style: Dict[str, Any], tone: str = "professional") -> str:
-        base_prompt = self._build_prompt(job_title, company_name, job_description, company_info, user_experiences, writing_style, tone)
+    def generate_cover_letter(self, job_title: str, company_name: str, job_description: str, company_info: Dict[str, Any], user_experiences: List[Experience], writing_style: Dict[str, Any], tone: str = "professional", include_company_research: bool = True) -> str:
+        base_prompt = self._build_prompt(job_title, company_name, job_description, company_info, user_experiences, writing_style, tone, include_company_research)
         
         # Enhance prompt with RAG context
         enhanced_prompt = self.rag_service.enhance_cover_letter_prompt(base_prompt, job_title, job_description, company_name)
@@ -26,7 +26,7 @@ class CoverLetterGenerator:
         
         return generated_content
 
-    def _build_prompt(self, job_title, company_name, job_description, company_info, user_experiences, writing_style, tone):
+    def _build_prompt(self, job_title, company_name, job_description, company_info, user_experiences, writing_style, tone, include_company_research=True):
         # Handle experiences from CV data (dict format) vs Experience objects
         if user_experiences and isinstance(user_experiences[0], dict):
             # CV parsed data format
@@ -42,7 +42,25 @@ class CoverLetterGenerator:
             ])
         
         style_text = f"Writing style: {json.dumps(writing_style)}" if writing_style else ""
-        company_text = f"Company info: {json.dumps(company_info)}" if company_info else ""
+        
+        # Conditionally include company research information
+        company_text = ""
+        if include_company_research and company_info:
+            # Extract relevant company information for the cover letter
+            company_details = []
+            if company_info.get('mission'):
+                company_details.append(f"Mission: {company_info['mission']}")
+            if company_info.get('vision'):
+                company_details.append(f"Vision: {company_info['vision']}")
+            if company_info.get('values'):
+                company_details.append(f"Values: {company_info['values']}")
+            if company_info.get('industry'):
+                company_details.append(f"Industry: {company_info['industry']}")
+            if company_info.get('description'):
+                company_details.append(f"Description: {company_info['description']}")
+            
+            if company_details:
+                company_text = f"Company Research:\n" + "\n".join(company_details) + "\n\n"
         
         prompt = f"""
 You are an expert career assistant. Write a cover letter for the following job application.
@@ -54,6 +72,8 @@ CRITICAL RULES - YOU MUST FOLLOW THESE:
 4. If no relevant experience is provided, focus on transferable skills and enthusiasm
 5. Be honest and authentic - do not exaggerate or lie
 6. Use specific details from the user's experience to make the letter personal and relevant
+7. If company research is provided, reference it naturally to show interest in the company, but DO NOT make up information
+8. Only mention company research if it's actually provided and relevant
 
 Job Title: {job_title}
 Company: {company_name}
@@ -75,6 +95,8 @@ Instructions:
 - Focus on relevant skills and enthusiasm
 - Do not invent or fabricate any information
 - Make the letter personal by referencing actual experience details
+- If company research is provided, naturally incorporate it to show interest in the company's mission, values, or industry
+- If no company research is available, focus on the job requirements and your experience
 
 Cover Letter:
 """

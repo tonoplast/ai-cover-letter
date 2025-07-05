@@ -35,6 +35,7 @@ class BatchCoverLetterRequest(BaseModel):
     tone: str = "professional"
     websites: List[str] = []
     delay_seconds: int = 3
+    include_company_research: bool = True
 
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
@@ -123,7 +124,8 @@ def get_search_providers():
             "google": "100 requests per minute", 
             "tavily": "50 requests per minute",
             "yacy": "30 requests per minute",
-            "searxng": "30 requests per minute"
+            "searxng": "30 requests per minute",
+            "brave": "20 requests per minute"
         }
     }
 
@@ -303,9 +305,36 @@ def generate_cover_letter(
             # Handle case where parsed_data might be a string or other type
             writing_style = {}
     
-    # Get company research
-    company_research = db.query(CompanyResearch).filter(CompanyResearch.company_name.ilike(f"%{req.company_name}%")).order_by(CompanyResearch.researched_at.desc()).first()
-    company_info = company_research.research_data if company_research else {}
+    # Handle company research based on user preference
+    company_info = {}
+    if req.include_company_research:
+        # Check if we already have research for this company
+        company_research = db.query(CompanyResearch).filter(CompanyResearch.company_name.ilike(f"%{req.company_name}%")).order_by(CompanyResearch.researched_at.desc()).first()
+        
+        if company_research:
+            company_info = company_research.research_data if company_research else {}
+        else:
+            # Perform new company research
+            try:
+                research_result = company_research_service.search_company(req.company_name)
+                if research_result:
+                    # Save the research to database
+                    research = CompanyResearch(
+                        company_name=research_result.get("company_name", req.company_name),
+                        website=research_result.get("website"),
+                        description=research_result.get("description"),
+                        industry=research_result.get("industry"),
+                        size=research_result.get("size"),
+                        location=research_result.get("location"),
+                        research_data=research_result
+                    )
+                    db.add(research)
+                    db.commit()
+                    company_info = research_result
+            except Exception as e:
+                print(f"Company research failed: {str(e)}")
+                # Continue without company research
+                company_info = {}
     
     # Generate cover letter
     generator = CoverLetterGenerator(db, llm_service)
@@ -316,7 +345,8 @@ def generate_cover_letter(
         company_info=company_info,
         user_experiences=experiences,  # Now using actual CV data
         writing_style=writing_style,
-        tone=req.tone or "professional"
+        tone=req.tone or "professional",
+        include_company_research=req.include_company_research
     )
     cover = CoverLetter(
         job_title=req.job_title,
@@ -893,14 +923,38 @@ def batch_cover_letters(
             company_name = job_info["company_name"] or "the company"
             job_title = job_info["job_title"] or req.job_title or "the position"
             job_description = job_info["job_description"] or req.job_description or ""
+            # Handle company research for batch generation
+            company_info = {}
+            if req.include_company_research and job_info["company_name"]:
+                try:
+                    research_result = company_research_service.search_company(job_info["company_name"])
+                    if research_result:
+                        # Save the research to database
+                        research = CompanyResearch(
+                            company_name=research_result.get("company_name", job_info["company_name"]),
+                            website=research_result.get("website"),
+                            description=research_result.get("description"),
+                            industry=research_result.get("industry"),
+                            size=research_result.get("size"),
+                            location=research_result.get("location"),
+                            research_data=research_result
+                        )
+                        db.add(research)
+                        db.commit()
+                        company_info = research_result
+                except Exception as e:
+                    print(f"Company research failed for {job_info['company_name']}: {str(e)}")
+                    # Continue without company research
+            
             cover_letter_content = generator.generate_cover_letter(
                 company_name=company_name,
                 job_title=job_title,
                 job_description=job_description,
-                company_info={},
+                company_info=company_info,
                 user_experiences=all_experiences,
                 writing_style=merged_style,
-                tone=req.tone
+                tone=req.tone,
+                include_company_research=req.include_company_research
             )
             cover_letter = CoverLetter(
                 job_title=job_info["job_title"],

@@ -49,6 +49,7 @@ class CoverLetterRequest(BaseModel):
     job_posting_url: Optional[HttpUrl] = None
     focus_areas: Optional[List[str]] = []
     tone: Optional[str] = "professional"  # professional, enthusiastic, formal, casual
+    include_company_research: Optional[bool] = True  # Whether to include company research in the cover letter
 
 class CoverLetterResponse(BaseModel):
     id: int

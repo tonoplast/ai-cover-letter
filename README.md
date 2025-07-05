@@ -13,7 +13,7 @@ An advanced AI-powered system for generating highly personalized, professional c
 - **Recency Weighting**: Prioritizes recent CVs and cover letters for both experience and writing style.
 - **Writing Style Adaptation**: Learns your style from previous cover letters and applies it to new ones.
 - **Local LLM Integration**: Works with local models (e.g., Ollama, llama3.2) for fast, private generation.
-- **Company Research**: Integrates with multiple search providers (Tavily, Google, DuckDuckGo, YaCy, SearXNG) for company info.
+- **Company Research**: Integrates with multiple search providers (Tavily, Google, Brave Search, DuckDuckGo, YaCy, SearXNG) for company info.
 - **Interactive Chat & Edit**: Refine cover letters in real time with an AI chat interface.
 - **Professional Export**: Download cover letters as PDF, DOCX, or TXT.
 - **Database Management**: Inspect, selectively delete, and manage all documents and generated content.
@@ -23,9 +23,13 @@ An advanced AI-powered system for generating highly personalized, professional c
 
 ## Getting Started
 
-### 1. **Install Dependencies**
+### 1. **Quick Setup (Recommended)**
 
 ```bash
+# Run the setup script
+python setup.py
+
+# Or install dependencies manually
 pip install -r requirements.txt
 # For RAG and LLM features:
 pip install sentence-transformers torch reportlab google-generativeai selenium webdriver-manager
@@ -33,18 +37,47 @@ pip install sentence-transformers torch reportlab google-generativeai selenium w
 
 ### 2. **Environment Setup**
 
-Copy `.env.example` to `.env` and fill in your details:
+Copy `env.template` to `.env` and configure your settings:
 
+```bash
+cp env.template .env
+```
+
+**Minimal setup for local development:**
 ```env
-DATABASE_URL=sqlite:///./cover_letter.db  # Or your Postgres URL
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2:latest
-# Optional: API keys for company research
-GOOGLE_API_KEY=...
-TAVILY_API_KEY=...
-YACY_URL=http://localhost:8090
-SEARXNG_URL=http://localhost:8080
+SECRET_KEY=your_random_secret_key_here
+DEBUG=True
 ```
+
+**Full setup with company research:**
+```env
+# LLM Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:latest
+
+# Company Research APIs (optional)
+TAVILY_API_KEY=tvly-your_tavily_api_key_here  # Recommended: https://tavily.com/
+GOOGLE_API_KEY=your_google_api_key_here       # Optional: https://makersuite.google.com/
+BRAVE_API_KEY=your_brave_api_key_here         # Optional: https://api.search.brave.com/
+
+# Self-hosted search engines (optional)
+YACY_URL=http://localhost:8090                # Install: https://yacy.net/
+SEARXNG_URL=http://localhost:8080             # Install: https://docs.searxng.org/
+
+# Security
+SECRET_KEY=your_random_secret_key_here
+DEBUG=False
+```
+
+**Available Search Providers:**
+- **Tavily AI** (Recommended): Free tier available, comprehensive company research
+- **Google AI**: Requires API key, high-quality results
+- **Brave Search**: Privacy-focused, works without API key (better with one)
+- **DuckDuckGo**: Free, no API key required, rate limited
+- **YaCy**: Self-hosted, privacy-focused
+- **SearXNG**: Self-hosted, meta-search engine
 
 ### 3. **Initialize the Database**
 
@@ -73,6 +106,7 @@ Visit [http://localhost:8000/](http://localhost:8000/) in your browser.
 
 #### ✍️ Generate Cover Letter Tab
 - **Manual:** Enter job title, company, and description, select tone, and generate.
+- **Company Research:** Toggle to include verified company information (mission, values, industry) in your cover letter.
 - **Batch:** Paste multiple job ad URLs, set delay (to avoid blocking), and generate tailored cover letters for each.
 
 #### 💬 Chat & Edit Tab
