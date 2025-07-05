@@ -1,0 +1,1875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Cover Letter Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            background-color: #fafafa;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #e3f2fd;
+        }
+        .file-list {
+            margin: 20px 0;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+            background-color: #f9f9f9;
+        }
+        .file-item select {
+            margin-left: 10px;
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        .file-item .remove-btn {
+            margin-left: auto;
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .form-group textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .instructions {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .cover-letter-preview {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: 'Times New Roman', serif;
+            line-height: 1.6;
+        }
+        .company-info {
+            background-color: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background-color: #f8f9fa;
+        }
+        .tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Chat Interface Styles */
+        .chat-container {
+            display: flex;
+            height: 1000px;
+            min-height: 800px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .chat-sidebar {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #ddd;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .cover-letters-panel {
+            display: flex;
+            height: 65%;
+            min-height: 450px;
+            border-bottom: 1px solid #ddd;
+        }
+        .cover-letter-section {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .cover-letter-section h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 14px;
+        }
+        .cover-letter-content {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-size: 15px;
+            height: calc(100% - 50px);
+            overflow-y: auto;
+        }
+        .cover-letter-divider {
+            width: 2px;
+            background-color: #ddd;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background-color: white;
+            min-height: 250px;
+            font-size: 15px;
+        }
+        .chat-input-area {
+            padding: 24px;
+            border-top: 1px solid #ddd;
+            background-color: #f8f9fa;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        .message.user {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+        .message.assistant {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        .cover-letter-item {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background-color: white;
+            font-size: 14px;
+        }
+        .cover-letter-item:hover {
+            background-color: #e3f2fd;
+        }
+        .cover-letter-item.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .cover-letter-item strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+        .cover-letter-item small {
+            display: block;
+            opacity: 0.8;
+            line-height: 1.3;
+            font-size: 13px;
+        }
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .chat-input button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .chat-input button:hover {
+            background-color: #0056b3;
+        }
+        .chat-input button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .export-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .export-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .export-pdf {
+            background-color: #dc3545;
+            color: white;
+        }
+        .export-docx {
+            background-color: #28a745;
+            color: white;
+        }
+        .export-txt {
+            background-color: #17a2b8;
+            color: white;
+        }
+        
+        /* Database selective deletion styles */
+        .database-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+            background-color: white;
+        }
+        .database-item:hover {
+            background-color: #f8f9fa;
+        }
+        .database-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .database-item-content {
+            flex: 1;
+        }
+        .database-item-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .delete-item-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-item-btn:hover {
+            background-color: #c82333;
+        }
+        .select-all-container {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .bulk-actions {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .save-options {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            border-radius: 5px;
+            display: none;
+        }
+        .save-options h5 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #155724;
+        }
+        .save-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .save-overwrite {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .save-overwrite:hover {
+            background-color: #218838;
+        }
+        .save-new {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .save-new:hover {
+            background-color: #138496;
+        }
+        /* Diff highlighting styles */
+        .diff-added {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-decoration: none;
+            margin: 1px 0;
+            border-left: 3px solid #28a745;
+        }
+        .diff-removed {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 2px 4px;
+            border-radius: 3px;
+            text-decoration: line-through;
+            margin: 1px 0;
+            border-left: 3px solid #dc3545;
+        }
+        .diff-unchanged {
+            background-color: transparent;
+            color: #333;
+            padding: 2px 4px;
+            margin: 1px 0;
+            border-left: 3px solid transparent;
+        }
+        .diff-changed {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .no-changes-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6c757d;
+            font-style: italic;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+        }
+        .diff-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .diff-toggle {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .diff-toggle:hover {
+            background-color: #0056b3;
+        }
+        .diff-toggle.active {
+            background-color: #28a745;
+        }
+        .revised-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        .revised-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background-color: #f8f9fa;
+        }
+        .revised-tab.revised-tab-active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Cover Letter Generator</h1>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('upload')">📁 Upload Documents</div>
+            <div class="tab" onclick="showTab('generate')">✍️ Generate Cover Letter</div>
+            <div class="tab" onclick="showTab('chat')">💬 Chat & Edit</div>
+            <div class="tab" onclick="showTab('database')">📊 Database</div>
+        </div>
+
+        <!-- Upload Documents Tab -->
+        <div id="upload-tab" class="tab-content active">
+            <div class="instructions">
+                <h3>📋 Upload Instructions</h3>
+                <ul>
+                    <li><strong>Upload Order Matters:</strong> Upload your <strong>latest CV first</strong> for optimal RAG performance</li>
+                    <li><strong>Supported Formats:</strong> PDF, DOCX, TXT, CSV, XLSX</li>
+                    <li><strong>Document Types:</strong> CV, Cover Letter, LinkedIn, or Other</li>
+                    <li><strong>Multiple Files:</strong> Drag & drop or select multiple files at once</li>
+                </ul>
+            </div>
+
+            <div class="upload-area" id="uploadArea">
+                <h3>📁 Drag & Drop Files Here</h3>
+                <p>or</p>
+                <input type="file" id="fileInput" multiple style="display: none;">
+                <button class="btn" onclick="document.getElementById('fileInput').click()">Select Files</button>
+            </div>
+
+            <div id="fileList" class="file-list"></div>
+
+            <div style="text-align: center;">
+                <button class="btn" id="uploadBtn" onclick="uploadFiles()" disabled>Upload All Files</button>
+                <button class="btn btn-danger" onclick="clearDatabase()">🗑️ Clear Database</button>
+            </div>
+        </div>
+
+        <!-- Generate Cover Letter Tab -->
+        <div id="generate-tab" class="tab-content">
+            <div class="section">
+                <h2>🏢 Company Research</h2>
+                <div class="form-group">
+                    <label for="companyName">Company Name:</label>
+                    <input type="text" id="companyName" placeholder="e.g., Google, Microsoft, etc.">
+                </div>
+                <div class="form-group">
+                    <label for="searchProvider">Search Provider:</label>
+                    <select id="searchProvider">
+                        <option value="">Auto (Best Available)</option>
+                        <option value="tavily">Tavily AI (Recommended)</option>
+                        <option value="google">Google AI</option>
+                        <option value="yacy">YaCy (Self-hosted)</option>
+                        <option value="searxng">SearXNG (Self-hosted)</option>
+                        <option value="duckduckgo">DuckDuckGo (Free)</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="researchCompany()">🔍 Research Company</button>
+                <div id="searchProviderInfo"></div>
+                <div id="companyInfo"></div>
+            </div>
+
+            <div class="section">
+                <h2>✍️ Generate Cover Letter</h2>
+                <div class="form-group">
+                    <label for="jobTitle">Job Title:</label>
+                    <input type="text" id="jobTitle" placeholder="e.g., Software Engineer, Data Scientist">
+                </div>
+                <div class="form-group">
+                    <label for="jobDescription">Job Description:</label>
+                    <textarea id="jobDescription" placeholder="Paste the job description here..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="tone">Writing Tone:</label>
+                    <select id="tone">
+                        <option value="professional">Professional</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                        <option value="formal">Formal</option>
+                        <option value="conversational">Conversational</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
+                <div id="coverLetterPreview"></div>
+            </div>
+
+            <div class="section">
+                <h2>🌐 Batch Generate from Job Ad Websites</h2>
+                <div class="form-group">
+                    <label for="batchJobTitle">Job Title (optional, used if not found on site):</label>
+                    <input type="text" id="batchJobTitle" placeholder="e.g., Software Engineer">
+                </div>
+                <div class="form-group">
+                    <label for="batchJobDescription">Job Description (optional, used if not found on site):</label>
+                    <textarea id="batchJobDescription" placeholder="Paste a default job description..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="batchTone">Writing Tone:</label>
+                    <select id="batchTone">
+                        <option value="professional">Professional</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                        <option value="formal">Formal</option>
+                        <option value="conversational">Conversational</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="batchWebsites">Job Ad URLs (one per line):</label>
+                    <textarea id="batchWebsites" placeholder="https://jobsite.com/ad1\nhttps://jobsite.com/ad2\n..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="batchDelay">Delay between jobs (seconds):</label>
+                    <input type="number" id="batchDelay" value="3" min="1" max="10" style="width: 100px;">
+                    <small style="color: #666;">Higher values reduce chance of being blocked, but take longer</small>
+                </div>
+                <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
+                <div id="batchStatus"></div>
+            </div>
+        </div>
+
+        <!-- Chat & Edit Tab -->
+        <div id="chat-tab" class="tab-content">
+            <div class="section">
+                <h2>💬 Chat & Edit Cover Letters</h2>
+                <p>Select a cover letter from the sidebar and chat with the AI to make modifications.</p>
+                
+                <div class="chat-container">
+                    <div class="chat-sidebar">
+                        <h3>📄 Cover Letters</h3>
+                        <div id="coverLetterList"></div>
+                    </div>
+                    <div class="chat-main">
+                        <div class="cover-letters-panel" id="coverLettersPanel" style="display: none;">
+                            <div class="cover-letter-section">
+                                <h4>📝 Current Version</h4>
+                                <div class="cover-letter-content" id="currentCoverLetterContent"></div>
+                            </div>
+                            <div class="cover-letter-divider"></div>
+                            <div class="cover-letter-section">
+                                <h4>✏️ Revised Version</h4>
+                                <div class="revised-tabs">
+                                    <button class="revised-tab revised-tab-active" id="showChangesTab" onclick="switchRevisedTab('diff')">Show Changes</button>
+                                    <button class="revised-tab" id="editRevisedTab" onclick="switchRevisedTab('edit')">Edit Revised Version</button>
+                                </div>
+                                <div id="revisedDiffPanel" style="display: block;">
+                                    <div class="diff-controls">
+                                        <span id="diffStatus">No changes detected</span>
+                                    </div>
+                                    <div class="cover-letter-content" id="revisedDiffContent" style="background: #fffbe6;"></div>
+                                    <div class="no-changes-message" id="noChangesMessage" style="display: none;">
+                                        ✨ No changes made - revised version is identical to current version
+                                    </div>
+                                </div>
+                                <div id="revisedEditPanel" style="display: none;">
+                                    <div class="cover-letter-content" id="revisedEditContent" contenteditable="true" spellcheck="true" style="outline: 1px solid #007bff; min-height: 200px; background: #fff;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="save-options" id="saveOptions" style="display: none;">
+                            <h5>💾 Save Changes</h5>
+                            <p id="saveStatus">You have unsaved changes. Choose how to save them:</p>
+                            <div class="save-buttons">
+                                <button class="save-overwrite" onclick="updateCurrentVersion()">🔄 Update Current Version</button>
+                                <button class="save-new" onclick="saveAsNew()">🆕 Save as New</button>
+                                <button class="btn" onclick="cancelEdit()">Cancel</button>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="message assistant">
+                                👋 Hi! I'm here to help you edit your cover letter. Select a cover letter from the sidebar to get started.
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <div class="chat-input">
+                                <input type="text" id="chatInput" placeholder="Ask me to modify the cover letter..." onkeypress="handleChatKeyPress(event)">
+                                <button onclick="sendChatMessage()" id="sendChatBtn">Send</button>
+                            </div>
+                            <div class="export-buttons" id="exportButtons" style="display: none;">
+                                <button class="export-pdf" onclick="exportCurrentLetter('pdf')">📄 Export PDF</button>
+                                <button class="export-docx" onclick="exportCurrentLetter('docx')">📝 Export DOCX</button>
+                                <button class="export-txt" onclick="exportCurrentLetter('txt')">📄 Export TXT</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Tab -->
+        <div id="database-tab" class="tab-content">
+            <div class="section">
+                <h2>📊 Database Contents</h2>
+                <button class="btn" onclick="checkDatabase()">🔄 Refresh Database Status</button>
+                <div id="databaseStatus"></div>
+                
+                <div class="select-all-container">
+                    <label><input type="checkbox" id="selectAllDocuments" onchange="toggleSelectAll('documents')"> Select All Documents</label>
+                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCoverLetters" onchange="toggleSelectAll('cover_letters')"> Select All Cover Letters</label>
+                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllExperiences" onchange="toggleSelectAll('experiences')"> Select All Experiences</label>
+                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCompanyResearch" onchange="toggleSelectAll('company_research')"> Select All Company Research</label>
+                </div>
+                
+                <div class="bulk-actions">
+                    <button class="btn btn-danger" onclick="deleteSelectedItems()">🗑️ Delete Selected</button>
+                    <button class="btn btn-danger" onclick="clearDatabase()">🗑️ Clear All Database</button>
+                    <span id="selectedCount">0 items selected</span>
+                </div>
+                
+                <div id="databaseDetails"></div>
+            </div>
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        let databaseData = null;
+        let mode = 'normal'; // 'normal', 'edit', 'diff'
+        let lastRevisedContent = '';
+
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+
+            // Load data for specific tabs
+            if (tabName === 'database') {
+                checkDatabase();
+            } else if (tabName === 'chat') {
+                loadCoverLetters();
+            }
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            addFiles(files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            addFiles(files);
+        });
+
+        function addFiles(files) {
+            files.forEach(file => {
+                if (!selectedFiles.find(f => f.name === file.name)) {
+                    selectedFiles.push(file);
+                }
+            });
+            updateFileList();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (selectedFiles.length === 0) {
+                fileList.innerHTML = '<p>No files selected</p>';
+                uploadBtn.disabled = true;
+                return;
+            }
+
+            fileList.innerHTML = selectedFiles.map((file, index) => `
+                <div class="file-item">
+                    <span>📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
+                    <select id="type-${index}">
+                        <option value="cv">CV/Resume</option>
+                        <option value="cover_letter">Cover Letter</option>
+                        <option value="linkedin">LinkedIn</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <button class="remove-btn" onclick="removeFile(${index})">Remove</button>
+                </div>
+            `).join('');
+
+            uploadBtn.disabled = false;
+        }
+
+        async function uploadFiles() {
+            if (selectedFiles.length === 0) return;
+
+            const formData = new FormData();
+            const documentTypes = [];
+
+            selectedFiles.forEach((file, index) => {
+                formData.append('files', file);
+                const typeSelect = document.getElementById(`type-${index}`);
+                documentTypes.push(typeSelect.value);
+            });
+
+            documentTypes.forEach(type => {
+                formData.append('document_types', type);
+            });
+
+            showStatus('Uploading files...', 'info');
+
+            try {
+                const response = await fetch('/upload-multiple-documents', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus(`✅ ${result.message}`, 'success');
+                    selectedFiles = [];
+                    updateFileList();
+                    checkDatabase();
+                } else {
+                    showStatus(`❌ Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Upload failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearDatabase() {
+            if (!confirm('⚠️ Are you sure you want to clear ALL data from the database? This action cannot be undone!')) {
+                return;
+            }
+
+            showStatus('Clearing database...', 'info');
+
+            try {
+                const response = await fetch('/clear-database', {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus(`✅ ${result.message}`, 'success');
+                    checkDatabase();
+                } else {
+                    showStatus(`❌ Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Failed to clear database: ${error.message}`, 'error');
+            }
+        }
+
+        async function researchCompany() {
+            const companyName = document.getElementById('companyName').value.trim();
+            const searchProvider = document.getElementById('searchProvider').value;
+            
+            if (!companyName) {
+                showStatus('❌ Please enter a company name', 'error');
+                return;
+            }
+
+            showStatus('Researching company...', 'info');
+
+            try {
+                const response = await fetch('/company-research', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        company_name: companyName,
+                        provider: searchProvider || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    const companyInfo = document.getElementById('companyInfo');
+                    const providerUsed = result.research_data?.provider_used || 'Unknown';
+                    companyInfo.innerHTML = `
+                        <div class="company-info">
+                            <h4>🏢 ${result.company_name}</h4>
+                            <p><strong>Search Provider:</strong> ${providerUsed}</p>
+                            <p><strong>Industry:</strong> ${result.industry || 'N/A'}</p>
+                            <p><strong>Size:</strong> ${result.size || 'N/A'}</p>
+                            <p><strong>Location:</strong> ${result.location || 'N/A'}</p>
+                            <p><strong>Website:</strong> ${result.website || 'N/A'}</p>
+                            <p><strong>Description:</strong> ${result.description || 'N/A'}</p>
+                        </div>
+                    `;
+                    showStatus(`✅ Company research completed using ${providerUsed}`, 'success');
+                } else {
+                    showStatus(`❌ Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Company research failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadSearchProviders() {
+            try {
+                const response = await fetch('/search-providers');
+                const data = await response.json();
+                
+                const providerInfo = document.getElementById('searchProviderInfo');
+                providerInfo.innerHTML = `
+                    <div class="status info">
+                        <h4>🔍 Available Search Providers:</h4>
+                        <p><strong>Available:</strong> ${data.available_providers.join(', ') || 'None'}</p>
+                        <p><strong>Rate Limits:</strong></p>
+                        <ul>
+                            <li>DuckDuckGo: ${data.rate_limits.duckduckgo}</li>
+                            <li>Google: ${data.rate_limits.google}</li>
+                            <li>Tavily: ${data.rate_limits.tavily}</li>
+                            <li>YaCy: ${data.rate_limits.yacy}</li>
+                            <li>SearXNG: ${data.rate_limits.searxng}</li>
+                        </ul>
+                    </div>
+                `;
+            } catch (error) {
+                console.log('Could not load search providers info');
+            }
+        }
+
+        async function generateCoverLetter() {
+            const jobTitle = document.getElementById('jobTitle').value.trim();
+            const companyName = document.getElementById('companyName').value.trim();
+            const jobDescription = document.getElementById('jobDescription').value.trim();
+            const tone = document.getElementById('tone').value;
+
+            if (!jobTitle || !companyName || !jobDescription) {
+                showStatus('❌ Please fill in all required fields', 'error');
+                return;
+            }
+
+            showStatus('Generating cover letter...', 'info');
+
+            try {
+                const response = await fetch('/generate-cover-letter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        job_title: jobTitle,
+                        company_name: companyName,
+                        job_description: jobDescription,
+                        tone: tone
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    const preview = document.getElementById('coverLetterPreview');
+                    preview.innerHTML = `
+                        <h3>📝 Generated Cover Letter</h3>
+                        <div class="cover-letter-preview">${result.generated_content}</div>
+                        <div style="margin-top: 20px;">
+                            <button class="btn" onclick="exportCoverLetter(${result.id}, 'pdf')">📄 Export as PDF</button>
+                            <button class="btn" onclick="exportCoverLetter(${result.id}, 'docx')">📝 Export as DOCX</button>
+                            <button class="btn" onclick="exportCoverLetter(${result.id}, 'txt')">📄 Export as TXT</button>
+                        </div>
+                    `;
+                    showStatus('✅ Cover letter generated successfully', 'success');
+                    checkDatabase();
+                } else {
+                    showStatus(`❌ Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Cover letter generation failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function exportCoverLetter(coverLetterId, format) {
+            showStatus(`Exporting as ${format.toUpperCase()}...`, 'info');
+
+            try {
+                const response = await fetch(`/export-cover-letter/${coverLetterId}?format=${format}`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus(`✅ Cover letter exported as ${format.toUpperCase()}`, 'success');
+                    // You could add download functionality here
+                } else {
+                    showStatus(`❌ Export failed: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Export failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkDatabase() {
+            try {
+                const response = await fetch('/database-contents');
+                const data = await response.json();
+                databaseData = data;
+
+                const databaseStatus = document.getElementById('databaseStatus');
+                databaseStatus.innerHTML = `
+                    <div class="status info">
+                        <h4>📊 Database Summary:</h4>
+                        <p>📄 Documents: ${data.documents.length}</p>
+                        <p>📝 Cover Letters: ${data.cover_letters.length}</p>
+                        <p>💼 Experiences: ${data.experiences.length}</p>
+                        <p>🏢 Company Research: ${data.company_research.length}</p>
+                    </div>
+                `;
+
+                // Show detailed database contents with checkboxes
+                const databaseDetails = document.getElementById('databaseDetails');
+                let detailsHtml = '<h4>📋 Detailed Contents:</h4>';
+
+                if (data.documents.length > 0) {
+                    detailsHtml += '<h5>📄 Documents:</h5>';
+                    data.documents.forEach(doc => {
+                        detailsHtml += `
+                            <div class="database-item">
+                                <input type="checkbox" class="doc-checkbox" value="${doc.id}" data-type="document">
+                                <div class="database-item-content">
+                                    <strong>${doc.filename}</strong> (${doc.document_type}) - ${doc.uploaded_at}
+                                </div>
+                                <div class="database-item-actions">
+                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (data.cover_letters.length > 0) {
+                    detailsHtml += '<h5>📝 Cover Letters:</h5>';
+                    data.cover_letters.forEach(cl => {
+                        detailsHtml += `
+                            <div class="database-item">
+                                <input type="checkbox" class="cl-checkbox" value="${cl.id}" data-type="cover_letter">
+                                <div class="database-item-content">
+                                    <strong>${cl.job_title}</strong> at ${cl.company_name} - ${cl.generated_at}
+                                </div>
+                                <div class="database-item-actions">
+                                    <button class="delete-item-btn" onclick="deleteItem('cover_letter', ${cl.id})">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (data.experiences.length > 0) {
+                    detailsHtml += '<h5>💼 Experiences:</h5>';
+                    data.experiences.forEach(exp => {
+                        detailsHtml += `
+                            <div class="database-item">
+                                <input type="checkbox" class="exp-checkbox" value="${exp.id}" data-type="experience">
+                                <div class="database-item-content">
+                                    <strong>${exp.title}</strong> at ${exp.company} - ${exp.start_date}
+                                </div>
+                                <div class="database-item-actions">
+                                    <button class="delete-item-btn" onclick="deleteItem('experience', ${exp.id})">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (data.company_research.length > 0) {
+                    detailsHtml += '<h5>🏢 Company Research:</h5>';
+                    data.company_research.forEach(cr => {
+                        detailsHtml += `
+                            <div class="database-item">
+                                <input type="checkbox" class="cr-checkbox" value="${cr.id}" data-type="company_research">
+                                <div class="database-item-content">
+                                    <strong>${cr.company_name}</strong> - ${cr.researched_at}
+                                </div>
+                                <div class="database-item-actions">
+                                    <button class="delete-item-btn" onclick="deleteItem('company_research', ${cr.id})">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                databaseDetails.innerHTML = detailsHtml;
+                updateSelectedCount();
+
+            } catch (error) {
+                showStatus(`❌ Failed to check database: ${error.message}`, 'error');
+            }
+        }
+
+        function showStatus(message, type = 'info', targetId = 'status') {
+            const statusDiv = document.getElementById(targetId);
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 5000);
+            }
+        }
+
+        // Check database on page load
+        checkDatabase();
+        
+        // Load search providers info when generate tab is shown
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load search providers info
+            loadSearchProviders();
+        });
+
+        // Chat functionality
+        let currentCoverLetter = null;
+        let chatHistory = [];
+
+        async function loadCoverLetters() {
+            try {
+                const response = await fetch('/database-contents');
+                const data = await response.json();
+                
+                const coverLetterList = document.getElementById('coverLetterList');
+                if (data.cover_letters.length === 0) {
+                    coverLetterList.innerHTML = '<p>No cover letters found. Generate one first!</p>';
+                    // Clear chat messages and show instruction
+                    const chatMessages = document.getElementById('chatMessages');
+                    chatMessages.innerHTML = '<div class="message assistant">👋 Hi! I\'m here to help you edit your cover letter. First, generate a cover letter in the "Generate Cover Letter" tab, then come back here to chat and edit it.</div>';
+                    return;
+                }
+
+                let html = '';
+                data.cover_letters.forEach((cl, index) => {
+                    html += `
+                        <div class="cover-letter-item" onclick="selectCoverLetter(${cl.id}, '${cl.job_title} at ${cl.company_name}')">
+                            <strong>${cl.job_title}</strong><br>
+                            <small>${cl.company_name}</small><br>
+                            <small>${cl.generated_at}</small>
+                        </div>
+                    `;
+                });
+                coverLetterList.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to load cover letters:', error);
+            }
+        }
+
+        // --- Revised Version Tab Logic ---
+        let revisedTab = 'diff'; // 'diff' or 'edit'
+        function switchRevisedTab(tab) {
+            revisedTab = tab;
+            document.getElementById('showChangesTab').classList.toggle('revised-tab-active', tab === 'diff');
+            document.getElementById('editRevisedTab').classList.toggle('revised-tab-active', tab === 'edit');
+            document.getElementById('revisedDiffPanel').style.display = tab === 'diff' ? 'block' : 'none';
+            document.getElementById('revisedEditPanel').style.display = tab === 'edit' ? 'block' : 'none';
+            if (tab === 'diff') {
+                updateDiffDisplay();
+            } else {
+                // Populate editable content with latest revised version, preserving formatting
+                const revisedContent = document.getElementById('revisedDiffContent').textContent;
+                const editContent = document.getElementById('revisedEditContent');
+                // Use textContent to preserve line breaks and spacing
+                editContent.textContent = revisedContent;
+                // Check if there are changes and show save options if needed
+                setTimeout(() => {
+                    checkAndShowSaveOptions();
+                }, 100); // Small delay to ensure content is loaded
+            }
+        }
+        // --- End Revised Version Tab Logic ---
+
+        // Patch selectCoverLetter to update both panels
+        async function selectCoverLetter(id, title) {
+            currentCoverLetter = id;
+            document.querySelectorAll('.cover-letter-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.cover-letter-item').classList.add('active');
+            document.getElementById('exportButtons').style.display = 'flex';
+            document.getElementById('saveOptions').style.display = 'none';
+            window.updatedCoverLetterContent = null;
+            try {
+                const response = await fetch(`/cover-letter/${id}`);
+                const data = await response.json();
+                if (response.ok) {
+                    // Set current version (this never changes)
+                    document.getElementById('currentCoverLetterContent').textContent = data.generated_content;
+                    // Set revised version to match current initially
+                    document.getElementById('revisedDiffContent').textContent = data.generated_content;
+                    document.getElementById('revisedEditContent').textContent = data.generated_content;
+                    document.getElementById('coverLettersPanel').style.display = 'flex';
+                    originalContent = data.generated_content;
+                    currentContent = data.generated_content;
+                    updateDiffDisplay();
+                    // Reset to diff tab when selecting a new cover letter
+                    switchRevisedTab('diff');
+                }
+            } catch (error) {
+                console.error('Failed to load cover letter content:', error);
+            }
+            addMessage(`I'm ready to help you edit the cover letter for "${title}". What would you like to change?`, 'assistant');
+        }
+
+        // Function to convert contenteditable HTML to plain text with proper line breaks
+        function getEditableTextContent(element) {
+            // Get the HTML content from the contenteditable div
+            const html = element.innerHTML;
+            
+            // Convert <div> and <br> tags to line breaks
+            let text = html
+                .replace(/<div>/g, '\n')
+                .replace(/<br>/g, '\n')
+                .replace(/<\/div>/g, '')
+                .replace(/<div><br><\/div>/g, '\n') // Empty divs become line breaks
+                .replace(/<div><\/div>/g, '\n'); // Empty divs become line breaks
+            
+            // Remove any remaining HTML tags
+            text = text.replace(/<[^>]+>/g, '');
+            
+            // Normalize line endings
+            text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            // Remove leading/trailing whitespace but preserve internal spacing
+            text = text.trim();
+            
+            return text;
+        }
+
+        // Function to check and show save options if there are changes
+        function checkAndShowSaveOptions() {
+            const currentText = document.getElementById('currentCoverLetterContent').textContent;
+            const revisedElement = document.getElementById('revisedEditContent');
+            const revisedText = getEditableTextContent(revisedElement);
+            
+            // Normalize line endings for comparison but preserve all whitespace
+            const normalizedCurrent = currentText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const normalizedRevised = revisedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            if (normalizedCurrent !== normalizedRevised) {
+                document.getElementById('saveOptions').style.display = 'block';
+                document.getElementById('saveStatus').textContent = 'You have unsaved changes. Choose how to save them:';
+            } else {
+                document.getElementById('saveOptions').style.display = 'none';
+            }
+        }
+
+        // Add event listener for manual edits in the editable content
+        document.addEventListener('DOMContentLoaded', function() {
+            const revisedEditContent = document.getElementById('revisedEditContent');
+            if (revisedEditContent) {
+                revisedEditContent.addEventListener('input', function() {
+                    // Check if there are changes when user edits manually
+                    const currentText = document.getElementById('currentCoverLetterContent').textContent;
+                    const revisedText = getEditableTextContent(this);
+                    
+                    // Normalize line endings for comparison but preserve all whitespace
+                    const normalizedCurrent = currentText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const normalizedRevised = revisedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    
+                    if (normalizedCurrent !== normalizedRevised) {
+                        document.getElementById('saveOptions').style.display = 'block';
+                        document.getElementById('saveStatus').textContent = 'You have unsaved changes. Choose how to save them:';
+                    } else {
+                        document.getElementById('saveOptions').style.display = 'none';
+                    }
+                });
+            }
+
+            // Add Enter key functionality for chat input
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault(); // Prevent default Enter behavior
+                        sendChatMessage();
+                    }
+                });
+            }
+        });
+
+        // Unified function to update diff display
+        function updateDiffDisplay() {
+            const currentText = document.getElementById('currentCoverLetterContent').textContent;
+            const revisedText = document.getElementById('revisedDiffContent').textContent;
+            
+            // Normalize line endings for comparison but preserve all whitespace
+            const normalizedCurrent = currentText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const normalizedRevised = revisedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            if (normalizedCurrent === normalizedRevised) {
+                // No changes - show the content normally with proper formatting
+                document.getElementById('noChangesMessage').style.display = 'flex';
+                document.getElementById('revisedDiffContent').style.display = 'none';
+                document.getElementById('diffStatus').textContent = 'No changes detected';
+            } else {
+                // Changes detected - show the diff with proper highlighting
+                document.getElementById('noChangesMessage').style.display = 'none';
+                document.getElementById('revisedDiffContent').style.display = 'block';
+                
+                // Generate and display the diff
+                const diffHtml = generateDiff(normalizedCurrent, normalizedRevised);
+                document.getElementById('revisedDiffContent').innerHTML = diffHtml;
+                
+                // Count changes for status
+                const changeCount = countChanges(diffHtml);
+                document.getElementById('diffStatus').textContent = `${changeCount} changes detected`;
+            }
+        }
+
+        function generateDiff(original, revised) {
+            // Split into lines for better diff visualization
+            const originalLines = original.split('\n');
+            const revisedLines = revised.split('\n');
+            
+            let diffHtml = '';
+            let i = 0, j = 0;
+            
+            while (i < originalLines.length || j < revisedLines.length) {
+                if (i < originalLines.length && j < revisedLines.length && originalLines[i] === revisedLines[j]) {
+                    // Lines match - show as unchanged
+                    diffHtml += `<div class="diff-unchanged">${escapeHtml(originalLines[i])}</div>`;
+                    i++;
+                    j++;
+                } else {
+                    // Lines don't match - find the best match
+                    let found = false;
+                    
+                    // Look ahead in revised text for a match
+                    for (let k = j + 1; k < Math.min(j + 3, revisedLines.length); k++) {
+                        if (i < originalLines.length && originalLines[i] === revisedLines[k]) {
+                            // Add removed lines from original
+                            for (let m = j; m < k; m++) {
+                                diffHtml += `<div class="diff-added">+ ${escapeHtml(revisedLines[m])}</div>`;
+                            }
+                            j = k;
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    // Look ahead in original text for a match
+                    if (!found) {
+                        for (let k = i + 1; k < Math.min(i + 3, originalLines.length); k++) {
+                            if (j < revisedLines.length && originalLines[k] === revisedLines[j]) {
+                                // Add removed lines from original
+                                for (let m = i; m < k; m++) {
+                                    diffHtml += `<div class="diff-removed">- ${escapeHtml(originalLines[m])}</div>`;
+                                }
+                                i = k;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If no match found, mark as changed
+                    if (!found) {
+                        if (i < originalLines.length) {
+                            diffHtml += `<div class="diff-removed">- ${escapeHtml(originalLines[i])}</div>`;
+                            i++;
+                        }
+                        if (j < revisedLines.length) {
+                            diffHtml += `<div class="diff-added">+ ${escapeHtml(revisedLines[j])}</div>`;
+                            j++;
+                        }
+                    }
+                }
+            }
+            
+            return diffHtml;
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function countChanges(diffHtml) {
+            const addedMatches = diffHtml.match(/class="diff-added"/g);
+            const removedMatches = diffHtml.match(/class="diff-removed"/g);
+            const addedCount = addedMatches ? addedMatches.length : 0;
+            const removedCount = removedMatches ? removedMatches.length : 0;
+            return addedCount + removedCount;
+        }
+
+        // Patch chat response to update only revised version
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            if (!currentCoverLetter) {
+                addMessage('Please select a cover letter first!', 'assistant');
+                return;
+            }
+
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // Disable send button
+            const sendBtn = document.getElementById('sendChatBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/chat-with-cover-letter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cover_letter_id: currentCoverLetter,
+                        message: message
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    addMessage(result.response, 'assistant');
+                    if (result.updated_content) {
+                        addMessage(`✅ Cover letter updated! Here's the new version:\n\n${result.updated_content}`, 'assistant');
+                        // Update only the revised version panels, NEVER the current version
+                        document.getElementById('revisedDiffContent').textContent = result.updated_content;
+                        document.getElementById('revisedEditContent').textContent = result.updated_content;
+                        document.getElementById('saveOptions').style.display = 'block';
+                        document.getElementById('saveStatus').textContent = 'Your cover letter has been updated. Choose how to save it:';
+                        window.updatedCoverLetterContent = result.updated_content;
+                        updateDiffDisplay();
+                    }
+                } else {
+                    addMessage(`❌ Error: ${result.detail}`, 'assistant');
+                }
+            } catch (error) {
+                addMessage(`❌ Failed to send message: ${error.message}`, 'assistant');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+            }
+        }
+
+        // Function to update the current version (only called when user explicitly chooses to)
+        async function updateCurrentVersion() {
+            const revisedDiv = document.getElementById('revisedEditContent');
+            const content = getEditableTextContent(revisedDiv);
+            const saveStatus = document.getElementById('saveStatus');
+            if (!currentCoverLetter) {
+                saveStatus.textContent = 'No cover letter selected!';
+                return;
+            }
+            saveStatus.textContent = 'Updating current version...';
+            try {
+                const response = await fetch(`/update-cover-letter/${currentCoverLetter}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ generated_content: content })
+                });
+                if (response.ok) {
+                    saveStatus.textContent = '✅ Current version updated successfully!';
+                    // NOW update the current version to show the saved content
+                    document.getElementById('currentCoverLetterContent').textContent = content;
+                    // Update stored content
+                    originalContent = content;
+                    currentContent = content;
+                    // Hide save options and switch to diff view
+                    setTimeout(() => { 
+                        document.getElementById('saveOptions').style.display = 'none';
+                        switchRevisedTab('diff');
+                    }, 1000);
+                    loadCoverLetters();
+                } else {
+                    const result = await response.json();
+                    saveStatus.textContent = `❌ Failed to update: ${result.detail}`;
+                }
+            } catch (error) {
+                saveStatus.textContent = `❌ Failed to update: ${error.message}`;
+            }
+        }
+
+        // Function to cancel edits and revert to original
+        function cancelEdit() {
+            // Revert the revised content to match the current version
+            const currentText = document.getElementById('currentCoverLetterContent').textContent;
+            document.getElementById('revisedDiffContent').textContent = currentText;
+            document.getElementById('revisedEditContent').textContent = currentText;
+            // Hide save options
+            document.getElementById('saveOptions').style.display = 'none';
+            // Switch back to diff view
+            switchRevisedTab('diff');
+        }
+
+        // Patch saveAsNew to use the proper text extraction
+        async function saveAsNew() {
+            const revisedDiv = document.getElementById('revisedEditContent');
+            const content = getEditableTextContent(revisedDiv); // Use proper text extraction
+            const saveStatus = document.getElementById('saveStatus');
+            if (!currentCoverLetter) {
+                saveStatus.textContent = 'No cover letter selected!';
+                return;
+            }
+            saveStatus.textContent = 'Saving...';
+            try {
+                const response = await fetch(`/cover-letter/${currentCoverLetter}`);
+                const originalData = await response.json();
+                if (!response.ok) {
+                    saveStatus.textContent = '❌ Failed to get original cover letter data';
+                    return;
+                }
+                const newResponse = await fetch('/create-cover-letter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        job_title: originalData.job_title,
+                        company_name: originalData.company_name,
+                        job_description: originalData.job_description,
+                        generated_content: content
+                    })
+                });
+                if (newResponse.ok) {
+                    saveStatus.textContent = '✅ New cover letter created successfully!';
+                    // Hide save options and switch to diff view
+                    setTimeout(() => { 
+                        document.getElementById('saveOptions').style.display = 'none';
+                        switchRevisedTab('diff');
+                    }, 1000);
+                    loadCoverLetters();
+                } else {
+                    const result = await newResponse.json();
+                    saveStatus.textContent = `❌ Failed to create new cover letter: ${result.detail}`;
+                }
+            } catch (error) {
+                saveStatus.textContent = `❌ Failed to create new cover letter: ${error.message}`;
+            }
+        }
+
+        // Selective deletion functions
+        function toggleSelectAll(type) {
+            const checkboxes = document.querySelectorAll(`input[data-type="${type}"]`);
+            const selectAllCheckbox = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked:not([id^="selectAll"])');
+            const countElement = document.getElementById('selectedCount');
+            countElement.textContent = `${selectedCheckboxes.length} items selected`;
+        }
+
+        async function deleteItem(type, id) {
+            if (!confirm(`Are you sure you want to delete this ${type.replace('_', ' ')}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/delete-${type}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showStatus(`✅ ${type.replace('_', ' ')} deleted successfully`, 'success');
+                    checkDatabase(); // Refresh the database view
+                } else {
+                    const result = await response.json();
+                    showStatus(`❌ Failed to delete: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Failed to delete: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteSelectedItems() {
+            const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked:not([id^="selectAll"])');
+            
+            if (selectedCheckboxes.length === 0) {
+                showStatus('❌ No items selected for deletion', 'error');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${selectedCheckboxes.length} selected items?`)) {
+                return;
+            }
+
+            let deletedCount = 0;
+            let errorCount = 0;
+
+            for (const checkbox of selectedCheckboxes) {
+                const type = checkbox.getAttribute('data-type');
+                const id = checkbox.value;
+
+                try {
+                    const response = await fetch(`/delete-${type}/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        deletedCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    errorCount++;
+                }
+            }
+
+            if (deletedCount > 0) {
+                showStatus(`✅ Successfully deleted ${deletedCount} items${errorCount > 0 ? `, ${errorCount} failed` : ''}`, 'success');
+                checkDatabase(); // Refresh the database view
+            } else {
+                showStatus(`❌ Failed to delete any items`, 'error');
+            }
+        }
+
+        // Add event listeners for checkboxes
+        document.addEventListener('change', function(e) {
+            if (e.target.type === 'checkbox' && !e.target.id.startsWith('selectAll')) {
+                updateSelectedCount();
+            }
+        });
+
+        // Diff comparison functionality
+        let diffMode = false;
+        let originalContent = '';
+        let currentContent = '';
+
+        function showDiff() {
+            const currentText = document.getElementById('currentCoverLetterContent').textContent;
+            const revisedText = document.getElementById('revisedDiffContent').textContent;
+            
+            // Normalize line endings for comparison but preserve all whitespace
+            const normalizedCurrent = currentText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const normalizedRevised = revisedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            if (normalizedCurrent === normalizedRevised) {
+                // No changes - show the content normally with proper formatting
+                document.getElementById('noChangesMessage').style.display = 'none';
+                document.getElementById('revisedDiffContent').style.display = 'block';
+                document.getElementById('revisedDiffContent').textContent = revisedText;
+                document.getElementById('diffStatus').textContent = 'No changes detected';
+            } else {
+                // Changes detected - show the revised content with proper formatting
+                document.getElementById('noChangesMessage').style.display = 'none';
+                document.getElementById('revisedDiffContent').style.display = 'block';
+                document.getElementById('revisedDiffContent').textContent = revisedText;
+                document.getElementById('diffStatus').textContent = 'Changes detected';
+            }
+        }
+
+        function generateDiff(original, revised) {
+            // Simple word-by-word diff implementation
+            const originalWords = original.split(/\s+/);
+            const revisedWords = revised.split(/\s+/);
+            
+            let diffHtml = '';
+            let i = 0, j = 0;
+            
+            while (i < originalWords.length || j < revisedWords.length) {
+                if (i < originalWords.length && j < revisedWords.length && originalWords[i] === revisedWords[j]) {
+                    // Words match
+                    diffHtml += originalWords[i] + ' ';
+                    i++;
+                    j++;
+                } else {
+                    // Words don't match - find the longest common subsequence
+                    let found = false;
+                    
+                    // Look ahead in revised text
+                    for (let k = j + 1; k < Math.min(j + 5, revisedWords.length); k++) {
+                        if (i < originalWords.length && originalWords[i] === revisedWords[k]) {
+                            // Add removed words from original
+                            for (let m = j; m < k; m++) {
+                                diffHtml += `<span class="diff-added">${revisedWords[m]}</span> `;
+                            }
+                            j = k;
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    // Look ahead in original text
+                    if (!found) {
+                        for (let k = i + 1; k < Math.min(i + 5, originalWords.length); k++) {
+                            if (j < revisedWords.length && originalWords[k] === revisedWords[j]) {
+                                // Add removed words from original
+                                for (let m = i; m < k; m++) {
+                                    diffHtml += `<span class="diff-removed">${originalWords[m]}</span> `;
+                                }
+                                i = k;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If no match found, mark as changed
+                    if (!found) {
+                        if (i < originalWords.length) {
+                            diffHtml += `<span class="diff-removed">${originalWords[i]}</span> `;
+                            i++;
+                        }
+                        if (j < revisedWords.length) {
+                            diffHtml += `<span class="diff-added">${revisedWords[j]}</span> `;
+                            j++;
+                        }
+                    }
+                }
+            }
+            
+            return diffHtml;
+        }
+
+        function countChanges(diffHtml) {
+            const addedMatches = diffHtml.match(/class="diff-added"/g);
+            const removedMatches = diffHtml.match(/class="diff-removed"/g);
+            const addedCount = addedMatches ? addedMatches.length : 0;
+            const removedCount = removedMatches ? removedMatches.length : 0;
+            return addedCount + removedCount;
+        }
+
+        function updateDiffStatus() {
+            const currentText = document.getElementById('currentCoverLetterContent').textContent;
+            const revisedText = document.getElementById('revisedDiffContent').textContent;
+            
+            // Normalize line endings for comparison but preserve all whitespace
+            const normalizedCurrent = currentText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const normalizedRevised = revisedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            if (normalizedCurrent === normalizedRevised) {
+                // No changes - show the content normally with proper formatting
+                document.getElementById('noChangesMessage').style.display = 'none';
+                document.getElementById('revisedDiffContent').style.display = 'block';
+                document.getElementById('revisedDiffContent').textContent = revisedText;
+                document.getElementById('diffStatus').textContent = 'No changes detected';
+            } else {
+                // Changes detected - show the revised content with proper formatting
+                document.getElementById('noChangesMessage').style.display = 'none';
+                document.getElementById('revisedDiffContent').style.display = 'block';
+                document.getElementById('revisedDiffContent').textContent = revisedText;
+                document.getElementById('diffStatus').textContent = 'Changes detected';
+            }
+        }
+
+        async function batchGenerateCoverLetters() {
+            const websitesRaw = document.getElementById('batchWebsites').value.trim();
+            const jobTitle = document.getElementById('batchJobTitle').value.trim();
+            const jobDescription = document.getElementById('batchJobDescription').value.trim();
+            const tone = document.getElementById('batchTone').value;
+            const delay = parseInt(document.getElementById('batchDelay').value) || 3;
+            
+            if (!websitesRaw) {
+                showStatus('❌ Please enter at least one job ad URL', 'error', 'batchStatus');
+                return;
+            }
+            const websites = websitesRaw.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+            showStatus(`Batch generating cover letters with ${delay}s delay between jobs...`, 'info', 'batchStatus');
+            try {
+                const response = await fetch('/batch-cover-letters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        job_title: jobTitle,
+                        companies: [],
+                        job_description: jobDescription,
+                        tone: tone,
+                        websites: websites,
+                        delay_seconds: delay
+                    })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    let html = `<div class='status success'><h4>Batch Results</h4><ul>`;
+                    result.results.forEach(r => {
+                        if (r.status === 'success') {
+                            html += `<li>✅ <b>${r.company || 'Unknown Company'}</b> (${r.job_title || ''}) from <a href='${r.website}' target='_blank'>${r.website || 'N/A'}</a> - <b>Success</b></li>`;
+                        } else {
+                            html += `<li>❌ <b>${r.company || 'Unknown'}</b> from <a href='${r.website}' target='_blank'>${r.website || 'N/A'}</a> - <b>Error:</b> ${r.error}</li>`;
+                        }
+                    });
+                    html += `</ul><p>Total: ${result.total_processed}, Success: ${result.successful}, Failed: ${result.failed}</p></div>`;
+                    document.getElementById('batchStatus').innerHTML = html;
+                    checkDatabase();
+                } else {
+                    showStatus(`❌ Error: ${result.detail}`, 'error', 'batchStatus');
+                }
+            } catch (error) {
+                showStatus(`❌ Batch generation failed: ${error.message}`, 'error', 'batchStatus');
+            }
+        }
+
+        // Utility: Sanitize contenteditable HTML to plain text
+        function sanitizeEditableContent(html) {
+            // Replace <br> and <div> with \n, strip all other tags
+            let text = html.replace(/<div><br><\/div>/g, '\n')
+                           .replace(/<div>/g, '\n')
+                           .replace(/<br>/g, '\n')
+                           .replace(/<\/div>/g, '')
+                           .replace(/<[^>]+>/g, '');
+            // Remove leading/trailing whitespace and normalize newlines
+            text = text.replace(/\n{2,}/g, '\n').trim();
+            return text;
+        }
+
+        function addMessage(content, sender) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.textContent = content;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        async function exportCurrentLetter(format) {
+            if (!currentCoverLetter) {
+                showStatus('Please select a cover letter first!', 'error');
+                return;
+            }
+            await exportCoverLetter(currentCoverLetter, format);
+        }
+    </script>
+</body>
+</html> 

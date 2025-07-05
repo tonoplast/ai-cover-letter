@@ -1,0 +1,22 @@
+general:
+  debug: false
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "your-secret-key-here"
+
+ui:
+  default_theme: simple
+
+search:
+  safe_search: 0
+  autocomplete: "google"
+  default_lang: "en"
+
+engines:
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    timeout: 3.0
+    disabled: false 

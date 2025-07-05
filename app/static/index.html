@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Cover Letter Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .container { max-width: 600px; margin: auto; }
+        input, textarea, select, button { width: 100%; margin-bottom: 1em; padding: 0.5em; }
+        .section { margin-bottom: 2em; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>AI Cover Letter Generator</h1>
+    <div class="section">
+        <h2>Upload Document</h2>
+        <form id="uploadForm">
+            <input type="file" name="file" required><br>
+            <select name="document_type" required>
+                <option value="cv">CV/Resume</option>
+                <option value="cover_letter">Cover Letter</option>
+                <option value="linkedin">LinkedIn Export</option>
+                <option value="other">Other</option>
+            </select><br>
+            <button type="submit">Upload</button>
+        </form>
+        <div id="uploadResult"></div>
+    </div>
+    <div class="section">
+        <h2>Import LinkedIn</h2>
+        <form id="linkedinForm">
+            <input type="email" name="email" placeholder="LinkedIn Email" required><br>
+            <input type="password" name="password" placeholder="LinkedIn Password" required><br>
+            <button type="submit">Import</button>
+        </form>
+        <div id="linkedinResult"></div>
+    </div>
+    <div class="section">
+        <h2>Generate Cover Letter</h2>
+        <form id="coverLetterForm">
+            <input type="text" name="job_title" placeholder="Job Title" required><br>
+            <input type="text" name="company_name" placeholder="Company Name" required><br>
+            <textarea name="job_description" placeholder="Paste Job Description Here" required></textarea><br>
+            <select name="tone">
+                <option value="professional">Professional</option>
+                <option value="enthusiastic">Enthusiastic</option>
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+            </select><br>
+            <button type="submit">Generate</button>
+        </form>
+        <div id="coverLetterResult"></div>
+    </div>
+</div>
+<script>
+// Upload Document
+const uploadForm = document.getElementById('uploadForm');
+uploadForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(uploadForm);
+    const res = await fetch('/upload-document', { method: 'POST', body: formData });
+    document.getElementById('uploadResult').innerText = await res.text();
+};
+// Import LinkedIn
+const linkedinForm = document.getElementById('linkedinForm');
+linkedinForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(linkedinForm);
+    const res = await fetch('/import-linkedin', { method: 'POST', body: formData });
+    document.getElementById('linkedinResult').innerText = await res.text();
+};
+// Generate Cover Letter
+const coverLetterForm = document.getElementById('coverLetterForm');
+coverLetterForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(coverLetterForm);
+    const obj = {};
+    formData.forEach((v, k) => obj[k] = v);
+    const res = await fetch('/generate-cover-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(obj)
+    });
+    document.getElementById('coverLetterResult').innerText = await res.text();
+};
+</script>
+</body>
+</html> 
