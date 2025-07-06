@@ -201,7 +201,7 @@ ANTHROPIC_MODEL=claude-3-sonnet-20240229
 
 # Company Research
 TAVILY_API_KEY=tvly-your_tavily_api_key_here
-GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here
 BRAVE_API_KEY=your_brave_api_key_here
 
 # Document Weighting

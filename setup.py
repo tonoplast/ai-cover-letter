@@ -67,7 +67,7 @@ DATABASE_URL=sqlite:///./ai_cover_letter.db
 
 # Optional: Add API keys for company research
 # TAVILY_API_KEY=your_tavily_api_key_here
-# GOOGLE_API_KEY=your_google_api_key_here
+# GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here
 # BRAVE_API_KEY=your_brave_api_key_here
 """
     
@@ -155,6 +155,7 @@ def print_next_steps():
     print("5. Open browser: http://localhost:8000")
     print("\n🔧 Optional Enhancements:")
     print("- Get Tavily API key for company research: https://tavily.com/")
+        print("- Get Google Gemini API key: https://makersuite.google.com/app/apikey")
     print("- Get Brave Search API key: https://api.search.brave.com/")
     print("- Install self-hosted search engines (YaCy, SearXNG)")
     print("\n📚 Documentation:")

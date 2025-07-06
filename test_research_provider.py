@@ -17,7 +17,7 @@ def test_research_providers():
     
     # Set up environment variables for testing
     os.environ['TAVILY_API_KEY'] = 'tvly-test-key'
-    os.environ['GOOGLE_API_KEY'] = 'test-google-key'
+    os.environ['GOOGLE_GEMINI_API_KEY'] = 'test-google-key'
     os.environ['YACY_URL'] = 'http://localhost:8090'
     os.environ['SEARXNG_URL'] = 'http://localhost:8080'
     

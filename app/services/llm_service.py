@@ -75,9 +75,9 @@ class LLMService:
             self.timeout = int(os.getenv("ANTHROPIC_TIMEOUT", "90"))  # 1.5 minutes default
         elif self.current_provider == LLMProvider.GOOGLE:
             self.base_url = "https://generativelanguage.googleapis.com/v1beta"
-            self.api_key = os.getenv("GOOGLE_API_KEY")
+            self.api_key = os.getenv("GOOGLE_GEMINI_API_KEY")
             if not self.api_key:
-                print("Warning: GOOGLE_API_KEY not found in environment")
+                print("Warning: GOOGLE_GEMINI_API_KEY not found in environment")
             # Google Gemini is usually fast
             self.timeout = int(os.getenv("GOOGLE_TIMEOUT", "60"))  # 1 minute default
     
@@ -384,7 +384,7 @@ class LLMService:
         })
         
         # Check Google Gemini
-        google_key = os.getenv("GOOGLE_API_KEY")
+        google_key = os.getenv("GOOGLE_GEMINI_API_KEY")
         providers.append({
             "name": "google",
             "display_name": "Google Gemini",

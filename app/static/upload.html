@@ -1412,62 +1412,42 @@
         }
 
         async function loadChatLLMModels(provider) {
-            console.log(`Loading chat models for provider: ${provider}`);
-            const chatLlmModelGroup = document.getElementById('chatLlmModelGroup');
-            const llmModelSelect = document.getElementById('chatLlmModel');
-            
-            if (!provider) {
-                console.log('No provider selected, showing default model');
-                // Show default model when "Auto" is selected
+            return new Promise(async (resolve) => {
+                console.log(`Loading chat models for provider: ${provider}`);
+                const chatLlmModelGroup = document.getElementById('chatLlmModelGroup');
+                const llmModelSelect = document.getElementById('chatLlmModel');
+                if (!provider) {
+                    // ... existing code ...
+                    resolve();
+                    return;
+                }
                 try {
-                    const response = await fetch('/llm-providers');
+                    const response = await fetch(`/llm-models/${provider}`);
                     const data = await response.json();
-                    const currentProvider = data.current_provider || 'ollama';
-                    
-                    // Get the default model for the current provider
-                    const modelResponse = await fetch(`/llm-models/${currentProvider}`);
-                    const modelData = await modelResponse.json();
-                    const defaultModel = modelData.current_model || 'llama3.2:latest';
-                    
-                    llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
-                    chatLlmModelGroup.style.display = 'block';
-                    console.log(`Showing default chat model: ${defaultModel}`);
-                } catch (error) {
-                    console.error('Error loading default chat model:', error);
                     llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
-                    chatLlmModelGroup.style.display = 'block';
-                }
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/llm-models/${provider}`);
-                const data = await response.json();
-                
-                llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
-                
-                if (data.models && data.models.length > 0) {
-                    data.models.forEach(model => {
-                        const option = document.createElement('option');
-                        option.value = model;
-                        option.textContent = model;
-                        if (model === data.current_model) {
-                            option.textContent += ' (Default)';
-                        }
-                        llmModelSelect.appendChild(option);
-                    });
-                    
-                    chatLlmModelGroup.style.display = 'block';
-                    console.log(`Loaded ${data.models.length} chat models`);
-                } else {
-                    console.log('No chat models returned, hiding model group');
+                    if (data.models && data.models.length > 0) {
+                        data.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === data.current_model) {
+                                option.textContent += ' (Default)';
+                            }
+                            llmModelSelect.appendChild(option);
+                        });
+                        chatLlmModelGroup.style.display = 'block';
+                        console.log(`Loaded ${data.models.length} chat models`);
+                    } else {
+                        console.log('No chat models returned, hiding model group');
+                        chatLlmModelGroup.style.display = 'none';
+                    }
+                    resolve();
+                } catch (error) {
+                    console.error(`Could not load chat models for provider ${provider}:`, error);
                     chatLlmModelGroup.style.display = 'none';
+                    resolve();
                 }
-                
-            } catch (error) {
-                console.error(`Could not load chat models for provider ${provider}:`, error);
-                chatLlmModelGroup.style.display = 'none';
-            }
+            });
         }
 
         async function generateCoverLetter() {
@@ -1725,8 +1705,23 @@
             
             // Add event listener for chat LLM provider selection
             document.getElementById('chatLlmProvider').addEventListener('change', function() {
-                console.log('Chat LLM provider changed to:', this.value);
-                loadChatLLMModels(this.value);
+                const provider = this.value;
+                // Save the current model selection for the previous provider
+                const prevProvider = this.getAttribute('data-prev-provider');
+                if (prevProvider) {
+                    const prevModel = document.getElementById('chatLlmModel').value;
+                    chatProviderModelSelections[prevProvider] = prevModel;
+                }
+                // Load models for the new provider
+                loadChatLLMModels(provider).then(() => {
+                    // Restore last selected model for this provider, if any
+                    const lastModel = chatProviderModelSelections[provider] || '';
+                    const modelSelect = document.getElementById('chatLlmModel');
+                    if (modelSelect && lastModel) {
+                        modelSelect.value = lastModel;
+                    }
+                });
+                this.setAttribute('data-prev-provider', provider);
             });
             
             // Load models for the current provider selections after providers are loaded
@@ -2761,6 +2756,17 @@
         // Example usage:
         // showSaveOptions(); // when unsaved changes detected
         // hideSaveOptions(); // when changes are saved or cancelled
+
+        // Add this at the top of your <script> section
+        let chatProviderModelSelections = {};
+
+        // Patch the chat model dropdown to remember selection
+        // Add this event listener after chatLlmModel is created
+        // (You can add this after loadChatLLMModels definition)
+        document.getElementById('chatLlmModel').addEventListener('change', function() {
+            const provider = document.getElementById('chatLlmProvider').value;
+            chatProviderModelSelections[provider] = this.value;
+        });
     </script>
 </body>
 </html> 

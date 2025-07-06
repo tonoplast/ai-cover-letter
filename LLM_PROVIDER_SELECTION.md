@@ -61,7 +61,7 @@ ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ANTHROPIC_MODEL=claude-3-sonnet-20240229
 
 # Google Gemini configuration (requires API key)
-GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here
 GOOGLE_MODEL=gemini-1.5-flash
 
 ### API Key Setup
@@ -82,7 +82,7 @@ GOOGLE_MODEL=gemini-1.5-flash
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create an account and add payment method
 3. Generate an API key
-4. Add to `.env`: `GOOGLE_API_KEY=your-key-here`
+4. Add to `.env`: `GOOGLE_GEMINI_API_KEY=your-key-here`
 
 #### Ollama
 1. Install Ollama: https://ollama.ai/

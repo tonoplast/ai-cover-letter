@@ -171,7 +171,7 @@ def test_environment_configuration():
         'OpenAI': os.getenv('OPENAI_API_KEY'),
         'Anthropic': os.getenv('ANTHROPIC_API_KEY'),
         'Tavily': os.getenv('TAVILY_API_KEY'),
-        'Google': os.getenv('GOOGLE_API_KEY'),
+        'Google': os.getenv('GOOGLE_GEMINI_API_KEY'),
         'Brave': os.getenv('BRAVE_API_KEY')
     }
     

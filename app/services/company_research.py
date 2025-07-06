@@ -73,7 +73,7 @@ class CompanyResearchService:
             self.rate_limiters[SearchProvider.DUCKDUCKGO] = RateLimiter(max_requests=10, time_window=60)  # 10 requests per minute
         
         # Google (requires API key)
-        google_api_key = os.getenv('GOOGLE_API_KEY')
+        google_api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
         if GOOGLE_AVAILABLE and google_api_key:
             self.providers[SearchProvider.GOOGLE] = self._search_google
             self.rate_limiters[SearchProvider.GOOGLE] = RateLimiter(max_requests=100, time_window=60)  # 100 requests per minute
@@ -190,11 +190,17 @@ class CompanyResearchService:
             return None
     
     def _search_google(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Search using Google Custom Search API with optional country focus"""
+        """Search using Google Generative AI (Gemini) with optional country focus"""
         try:
-            # Use Google's Generative AI for company research
-            model = genai.GenerativeModel('gemini-pro')
-            
+            # Configure Google Generative AI with our API key
+            google_api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
+            if not google_api_key:
+                print("Google Gemini API key not found in environment variables")
+                return None
+            import google.generativeai as genai
+            genai.configure(api_key=google_api_key)
+            # Use a valid Gemini model name
+            model = genai.GenerativeModel('gemini-1.5-flash')
             # Add country context to prompt if specified
             country_context = f" in {country}" if country else ""
             prompt = f"""
@@ -209,13 +215,10 @@ class CompanyResearchService:
                 "founded": "year founded if known",
                 "revenue": "revenue range if known"
             }}
-            
             Only return valid JSON, no additional text.
             """
-            
             response = model.generate_content(prompt)
             result = json.loads(response.text)
-            
             return {
                 'company_name': result.get('company_name', company_name),
                 'industry': result.get('industry', ''),
@@ -227,7 +230,6 @@ class CompanyResearchService:
                 'revenue': result.get('revenue', ''),
                 'research_data': result
             }
-            
         except Exception as e:
             print(f"Google search error: {str(e)}")
             return None

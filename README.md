@@ -82,7 +82,7 @@ ANTHROPIC_MODEL=claude-3-sonnet-20240229
 
 # Company Research APIs (optional)
 TAVILY_API_KEY=tvly-your_tavily_api_key_here  # Recommended: https://tavily.com/
-GOOGLE_API_KEY=your_google_api_key_here       # Optional: https://makersuite.google.com/
+GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here       # Optional: https://makersuite.google.com/
 BRAVE_API_KEY=your_brave_api_key_here         # Optional: https://api.search.brave.com/
 
 # Self-hosted search engines (optional)
@@ -105,11 +105,12 @@ DEBUG=False
 - **Ollama (Local)**: Fast, private, works offline with local models
 - **OpenAI**: High-quality models (GPT-4, GPT-3.5), requires API key
 - **Anthropic Claude**: Advanced reasoning, requires API key
+- **Google Gemini**: Fast, cost-effective models (Gemini-1.5 Flash, Gemini-1.5 Pro), requires API key
 
 **Available Search Providers:**
 - **Tavily AI** (Recommended): Free tier available, comprehensive company research
 - **OpenAI**: Uses GPT models for intelligent search, requires API key
-- **Google AI**: Requires API key, high-quality results
+- **Google Gemini**: Uses Gemini AI for intelligent company research, requires API key
 - **Brave Search**: Privacy-focused, works without API key (better with one)
 - **DuckDuckGo**: Free, no API key required, rate limited
 - **YaCy**: Self-hosted, privacy-focused
@@ -166,6 +167,7 @@ The system supports multiple LLM providers with dynamic model loading:
 2. **Ollama (Local)**: Shows all available local models (requires Ollama running)
 3. **OpenAI**: Shows all available OpenAI models (requires API key)
 4. **Anthropic Claude**: Shows all available Claude models (requires API key)
+5. **Google Gemini**: Shows all available Gemini models (requires API key)
 
 **Model Selection Flow:**
 - When you select a provider, the AI Model dropdown automatically populates with available models
@@ -180,7 +182,7 @@ The system supports multiple LLM providers with dynamic model loading:
 - **Auto (Best Available)**: System chooses the best available provider
 - **Tavily AI**: Recommended for comprehensive company research
 - **OpenAI**: Intelligent search using GPT models
-- **Google AI**: High-quality search results
+- **Google Gemini**: Intelligent search using Gemini AI models
 - **Brave Search**: Privacy-focused search
 - **DuckDuckGo**: Free, no API key required
 - **YaCy**: Self-hosted, privacy-focused
@@ -229,8 +231,8 @@ curl -X POST "http://localhost:8000/generate-cover-letter" \
     "include_company_research": true,
     "research_provider": "tavily",
     "research_country": "Australia",
-    "llm_provider": "openai",
-    "llm_model": "gpt-4"
+    "llm_provider": "google",
+    "llm_model": "gemini-1.5-flash"
   }'
 ```
 
@@ -264,8 +266,8 @@ curl -X POST "http://localhost:8000/chat-with-cover-letter" \
   -d '{
     "cover_letter_id": 1,
     "message": "Make this cover letter more professional",
-    "llm_provider": "openai",
-    "llm_model": "gpt-4"
+    "llm_provider": "google",
+    "llm_model": "gemini-1.5-flash"
   }'
 ```
 
@@ -287,7 +289,7 @@ curl -X POST "http://localhost:8000/chat-with-cover-letter" \
 - **Company Research:** Use multiple providers for company info, with fallback and rate limiting.
 - **Country-Specific Search:** Focus research on specific countries for more relevant results.
 - **Document Weighting:** Configure weights for different document types and recency periods.
-- **Multiple LLM Providers:** Choose between local (Ollama), OpenAI, and Anthropic models.
+- **Multiple LLM Providers:** Choose between local (Ollama), OpenAI, Anthropic, and Google Gemini models.
 - **Dynamic Model Loading:** Automatically loads available models for each provider.
 - **Anti-bot Scraping:** Selenium-based fallback for protected job sites, with configurable delays.
 - **Selective Deletion:** Delete individual or multiple documents, cover letters, or experiences from the database.
@@ -325,7 +327,7 @@ curl -X POST "http://localhost:8000/chat-with-cover-letter" \
 
 - **403/Blocked on Scraping:** Increase delay between jobs, or use manual job description input for protected sites.
 - **No CV Uploaded:** Upload at least one CV for best RAG results.
-- **LLM Not Responding:** Check your Ollama, OpenAI, or Anthropic configuration and API keys.
+- **LLM Not Responding:** Check your Ollama, OpenAI, Anthropic, or Google Gemini configuration and API keys.
 - **Model Not Loading:** Ensure your LLM provider is running and accessible.
 - **Company Research Failing:** Check your API keys and rate limits for the selected provider.
 - **Timeout Errors:** Increase timeout values in your `.env` file for slow models.
@@ -339,6 +341,7 @@ If you're experiencing timeout errors with large or slow models, you can adjust 
 OLLAMA_TIMEOUT=120    # 2 minutes for local models (increase for large models)
 OPENAI_TIMEOUT=60     # 1 minute for OpenAI
 ANTHROPIC_TIMEOUT=90  # 1.5 minutes for Claude (increase for complex models)
+GOOGLE_TIMEOUT=60     # 1 minute for Google Gemini
 ```
 
 **Recommended timeouts by model size:**

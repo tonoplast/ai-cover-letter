@@ -206,7 +206,7 @@ TAVILY_API_KEY=tvly-your-key-here
 OPENAI_API_KEY=your-openai-key-here
 
 # For Google AI
-GOOGLE_API_KEY=your-google-key-here
+GOOGLE_GEMINI_API_KEY=your-google-gemini-key-here
 
 # For Brave Search (optional)
 BRAVE_API_KEY=your-brave-key-here
