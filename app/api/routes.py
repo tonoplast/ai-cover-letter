@@ -28,6 +28,8 @@ from selenium.common.exceptions import WebDriverException
 class ChatRequest(BaseModel):
     cover_letter_id: int
     message: str
+    llm_provider: Optional[str] = None  # LLM provider (ollama, openai, anthropic)
+    llm_model: Optional[str] = None  # Specific model for the LLM provider
 
 class BatchCoverLetterRequest(BaseModel):
     job_title: str
@@ -39,6 +41,8 @@ class BatchCoverLetterRequest(BaseModel):
     include_company_research: bool = True
     research_provider: Optional[str] = None  # Provider for company research (tavily, google, brave, etc.)
     research_country: Optional[str] = None  # Country to focus search on (e.g., "Australia", "United States", etc.)
+    llm_provider: Optional[str] = None  # LLM provider (ollama, openai, anthropic)
+    llm_model: Optional[str] = None  # Specific model for the LLM provider
 
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
@@ -141,6 +145,33 @@ def get_search_providers():
             "brave": "20 requests per minute"
         }
     }
+
+@router.get("/llm-providers")
+def get_llm_providers():
+    """Get available LLM providers and their configurations"""
+    llm_service = LLMService()
+    return {
+        "providers": llm_service.get_available_providers(),
+        "current_provider": os.getenv("LLM_PROVIDER", "ollama")
+    }
+
+@router.get("/llm-models/{provider}")
+def get_llm_models(provider: str):
+    """Get available models for a specific LLM provider"""
+    llm_service = LLMService(provider=provider)
+    models = llm_service.list_models()
+    return {
+        "provider": provider,
+        "models": models or [],
+        "current_model": llm_service.current_model
+    }
+
+@router.post("/test-llm-connection")
+def test_llm_connection(provider: str, model: str):
+    """Test connection to a specific LLM provider and model"""
+    llm_service = LLMService(provider=provider, model=model)
+    result = llm_service.test_connection()
+    return result
 
 @router.get("/test-tavily")
 def test_tavily_api():
@@ -371,8 +402,14 @@ def generate_cover_letter(
                 # Continue without company research
                 company_info = {}
     
+    # Create LLM service with selected provider and model
+    selected_llm_service = LLMService(
+        provider=req.llm_provider,
+        model=req.llm_model
+    )
+    
     # Generate cover letter using the same logic as batch generation
-    generator = CoverLetterGenerator(db, llm_service)
+    generator = CoverLetterGenerator(db, selected_llm_service)
     content = generator.generate_cover_letter(
         job_title=req.job_title,
         company_name=req.company_name,
@@ -860,8 +897,14 @@ CRITICAL FORMATTING INSTRUCTIONS:
 Respond with ONLY the revised cover letter if changes are requested.
 """
         
+        # Create LLM service with selected provider and model
+        selected_llm_service = LLMService(
+            provider=req.llm_provider,
+            model=req.llm_model
+        )
+        
         # Get response from LLM
-        response = llm_service.generate_text(chat_prompt, max_tokens=1024, temperature=0.7)
+        response = selected_llm_service.generate_text(chat_prompt, max_tokens=1024, temperature=0.7)
         if not response:
             raise HTTPException(status_code=500, detail="Failed to generate response from LLM")
         
@@ -995,8 +1038,12 @@ def batch_cover_letters(
         try:
             if i > 0:
                 time.sleep(req.delay_seconds)
-            llm_service = LLMService()
-            generator = CoverLetterGenerator(db, llm_service)
+            # Create LLM service with selected provider and model
+            selected_llm_service = LLMService(
+                provider=req.llm_provider,
+                model=req.llm_model
+            )
+            generator = CoverLetterGenerator(db, selected_llm_service)
             company_name = job_info["company_name"] or "the company"
             job_title = job_info["job_title"] or req.job_title or "the position"
             job_description = job_info["job_description"] or req.job_description or ""

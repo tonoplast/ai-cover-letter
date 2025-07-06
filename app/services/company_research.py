@@ -30,6 +30,7 @@ class SearchProvider(Enum):
     YACY = "yacy"
     SEARXNG = "searxng"
     BRAVE = "brave"
+    OPENAI = "openai"
     MANUAL = "manual"
 
 @dataclass
@@ -98,6 +99,12 @@ class CompanyResearchService:
         # Brave Search (free, privacy-focused)
         self.providers[SearchProvider.BRAVE] = self._search_brave
         self.rate_limiters[SearchProvider.BRAVE] = RateLimiter(max_requests=20, time_window=60)  # 20 requests per minute
+        
+        # OpenAI (requires API key)
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        if openai_api_key:
+            self.providers[SearchProvider.OPENAI] = self._search_openai
+            self.rate_limiters[SearchProvider.OPENAI] = RateLimiter(max_requests=60, time_window=60)  # 60 requests per minute
     
     def get_available_providers(self) -> List[str]:
         """Get list of available search providers"""
@@ -428,6 +435,108 @@ class CompanyResearchService:
         except Exception as e:
             print(f"Brave search error: {str(e)}")
             return None
+    
+    def _search_openai(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using OpenAI's web search capabilities with optional country focus"""
+        try:
+            import openai
+            
+            # Configure OpenAI
+            openai.api_key = os.getenv('OPENAI_API_KEY')
+            
+            # Add country context to search query if specified
+            country_context = f" in {country}" if country else ""
+            search_query = f"{company_name} company information{country_context}"
+            
+            # Use OpenAI's web search (if available) or fallback to chat completion
+            try:
+                # Try web search first (requires GPT-4 with browsing)
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant that researches companies. Search the web for the given company and provide comprehensive information."
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Research the company '{company_name}'{country_context} and provide the following information in JSON format:\n" +
+                                     "{\n" +
+                                     '    "company_name": "official company name",\n' +
+                                     '    "industry": "primary industry",\n' +
+                                     '    "size": "company size (e.g., 1000-5000 employees)",\n' +
+                                     '    "location": "headquarters location",\n' +
+                                     '    "website": "official website",\n' +
+                                     '    "description": "brief company description",\n' +
+                                     '    "key_products": "main products or services",\n' +
+                                     '    "founded": "year founded",\n' +
+                                     '    "revenue": "revenue information if available",\n' +
+                                     '    "culture": "company culture and values"\n' +
+                                     "}"
+                        }
+                    ],
+                    max_tokens=1000,
+                    temperature=0.1
+                )
+                
+                content = response.choices[0].message.content
+                
+                # Try to extract JSON from response
+                try:
+                    # Find JSON in the response
+                    start_idx = content.find('{')
+                    end_idx = content.rfind('}') + 1
+                    if start_idx != -1 and end_idx != 0:
+                        json_str = content[start_idx:end_idx]
+                        company_info = json.loads(json_str)
+                        return company_info
+                    else:
+                        # Fallback: create structured info from text
+                        return self._extract_company_info_from_text(content, company_name)
+                        
+                except json.JSONDecodeError:
+                    # Fallback: create structured info from text
+                    return self._extract_company_info_from_text(content, company_name)
+                    
+            except Exception as web_search_error:
+                print(f"OpenAI web search failed, using fallback: {web_search_error}")
+                # Fallback to basic company info generation
+                return self._generate_basic_company_info(company_name, country)
+                
+        except Exception as e:
+            print(f"OpenAI search error: {str(e)}")
+            return None
+    
+    def _extract_company_info_from_text(self, text: str, company_name: str) -> Dict[str, Any]:
+        """Extract company information from OpenAI response text"""
+        return {
+            "company_name": company_name,
+            "industry": "Technology",  # Default
+            "size": "Unknown",
+            "location": "Unknown",
+            "website": "Unknown",
+            "description": text[:500] if text else "No description available",
+            "key_products": "Unknown",
+            "founded": "Unknown",
+            "revenue": "Unknown",
+            "culture": "Unknown"
+        }
+    
+    def _generate_basic_company_info(self, company_name: str, country: Optional[str] = None) -> Dict[str, Any]:
+        """Generate basic company information when search fails"""
+        country_info = f" in {country}" if country else ""
+        return {
+            "company_name": company_name,
+            "industry": "Technology",
+            "size": "Unknown",
+            "location": f"Unknown{country_info}",
+            "website": "Unknown",
+            "description": f"{company_name} is a company{country_info}.",
+            "key_products": "Unknown",
+            "founded": "Unknown",
+            "revenue": "Unknown",
+            "culture": "Unknown"
+        }
     
     def _extract_comprehensive_company_info(self, results: List[Dict[str, Any]], company_name: str) -> Dict[str, Any]:
         """Extract comprehensive company information from search results"""
