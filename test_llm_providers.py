@@ -34,7 +34,7 @@ def test_llm_providers():
     print()
     
     # Test each provider
-    test_providers = ['ollama', 'openai', 'anthropic']
+    test_providers = ['ollama', 'openai', 'anthropic', 'google']
     
     for provider_name in test_providers:
         print(f"=== Testing {provider_name.upper()} ===")

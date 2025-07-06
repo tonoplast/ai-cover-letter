@@ -116,7 +116,8 @@ const providerOptions = [
     { value: '', text: `Auto (Use Default: ${defaultProvider.charAt(0).toUpperCase() + defaultProvider.slice(1)})` },
     { value: 'ollama', text: 'Ollama (Local)' },
     { value: 'openai', text: 'OpenAI' },
-    { value: 'anthropic', text: 'Anthropic Claude' }
+    { value: 'anthropic', text: 'Anthropic Claude' },
+    { value: 'google', text: 'Google Gemini' }
 ];
 ```
 

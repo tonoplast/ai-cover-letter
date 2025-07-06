@@ -30,6 +30,14 @@ The AI Cover Letter Generator now supports multiple LLM (Large Language Model) p
 - **Models**: Claude-3 Opus, Claude-3 Sonnet, Claude-3 Haiku (dynamically loaded)
 - **Best for**: High-quality results, safety-focused, advanced reasoning
 
+### 4. **Google Gemini**
+- **Type**: Cloud service
+- **Cost**: Pay-per-use (varies by model)
+- **Privacy**: Data sent to Google servers
+- **Setup**: Requires API key
+- **Models**: Gemini-1.5 Flash, Gemini-1.5 Pro, Gemini-1.0 Pro (dynamically loaded)
+- **Best for**: Fast responses, cost-effective, good quality
+
 ## Configuration
 
 ### Environment Variables
@@ -51,7 +59,10 @@ OPENAI_MODEL=gpt-4
 # Anthropic Claude configuration (requires API key)
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ANTHROPIC_MODEL=claude-3-sonnet-20240229
-```
+
+# Google Gemini configuration (requires API key)
+GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_MODEL=gemini-1.5-flash
 
 ### API Key Setup
 
@@ -67,6 +78,12 @@ ANTHROPIC_MODEL=claude-3-sonnet-20240229
 3. Generate an API key
 4. Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-your-key-here`
 
+#### Google Gemini
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create an account and add payment method
+3. Generate an API key
+4. Add to `.env`: `GOOGLE_API_KEY=your-key-here`
+
 #### Ollama
 1. Install Ollama: https://ollama.ai/
 2. Run: `ollama serve`
@@ -77,7 +94,7 @@ ANTHROPIC_MODEL=claude-3-sonnet-20240229
 
 ### Single Cover Letter Generation
 1. Fill in job details (title, company, description)
-2. Select **AI Model Provider** from dropdown (Auto/Ollama/OpenAI/Anthropic)
+2. Select **AI Model Provider** from dropdown (Auto/Ollama/OpenAI/Anthropic/Google)
 3. Select **AI Model** (Auto/Provider-specific models)
 4. Generate cover letter
 
@@ -96,6 +113,11 @@ ANTHROPIC_MODEL=claude-3-sonnet-20240229
 - **Auto (Use Default)**: Uses the provider configured in `.env`
 - **Specific Provider**: Uses the selected provider with its default model
 - **Specific Model**: Uses the selected provider with the specified model
+
+### Google Models
+- Attempts to fetch from Google AI API
+- Falls back to common models if API fails
+- Shows all available Gemini models
 
 ## Dynamic Model Loading
 
@@ -129,6 +151,9 @@ The system automatically loads available models for each provider:
 | **Anthropic** | Claude-3 Opus | Excellent | Slow | High | Best quality |
 | **Anthropic** | Claude-3 Sonnet | Good | Medium | Medium | Balanced |
 | **Anthropic** | Claude-3 Haiku | Good | Fast | Low | Cost-effective |
+| **Google** | Gemini-1.5 Pro | Excellent | Medium | Medium | Best quality |
+| **Google** | Gemini-1.5 Flash | Good | Fast | Low | Cost-effective |
+| **Google** | Gemini-1.0 Pro | Good | Medium | Low | Balanced |
 
 ## Features
 
@@ -247,6 +272,12 @@ This will test:
 - **API key invalid**: Check key format and permissions
 - **Model not available**: Check model name and availability
 - **Rate limited**: Wait or upgrade plan
+- **Models not loading**: Check API key and internet connection
+
+### Google Issues
+- **API key invalid**: Check key format and permissions
+- **Rate limited**: Wait or upgrade plan
+- **Model not available**: Check model name and availability
 - **Models not loading**: Check API key and internet connection
 
 ### General Issues

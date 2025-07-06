@@ -783,6 +783,7 @@
                         <option value="ollama">Ollama (Local)</option>
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic Claude</option>
+                        <option value="google">Google Gemini</option>
                     </select>
                     <small style="color: #666;">Select which AI provider to use for cover letter generation. Auto uses the default configured provider.</small>
                 </div>
@@ -879,6 +880,7 @@
                         <option value="ollama">Ollama (Local)</option>
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic Claude</option>
+                        <option value="google">Google Gemini</option>
                     </select>
                     <small style="color: #666;">Select which AI provider to use for batch cover letter generation. Auto uses the default configured provider.</small>
                 </div>
@@ -955,6 +957,7 @@
                                         <option value="ollama">Ollama (Local)</option>
                                         <option value="openai">OpenAI</option>
                                         <option value="anthropic">Anthropic Claude</option>
+                                        <option value="google">Google Gemini</option>
                                     </select>
                                 </div>
                                 <div class="form-group" id="chatLlmModelGroup" style="display: none; margin-bottom: 10px;">
@@ -1258,10 +1261,14 @@
                 // Update all LLM provider dropdowns
                 const providerDropdowns = ['llmProvider', 'batchLlmProvider', 'chatLlmProvider'];
                 
+                // Update the "Auto" option to show the default provider
+                const defaultProvider = data.current_provider || 'ollama';
+                const autoOptionText = `Auto (Use Default: ${defaultProvider.charAt(0).toUpperCase() + defaultProvider.slice(1)})`;
+                
                 providerDropdowns.forEach(dropdownId => {
                     const llmProviderSelect = document.getElementById(dropdownId);
                     if (llmProviderSelect) {
-                        llmProviderSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
+                        llmProviderSelect.innerHTML = `<option value="">${autoOptionText}</option>`;
                         
                         data.providers.forEach(provider => {
                             const option = document.createElement('option');
@@ -1722,38 +1729,17 @@
                 loadChatLLMModels(this.value);
             });
             
-            // Initialize model dropdowns to show default models
-            // Get the default provider and update dropdowns
-            fetch('/llm-providers')
-                .then(response => response.json())
-                .then(data => {
-                    const defaultProvider = data.current_provider || 'ollama';
-                    console.log('Default provider:', defaultProvider);
-                    
-                    // Update the "Auto" option to show the default provider
-                    const autoOptionText = `Auto (Use Default: ${defaultProvider.charAt(0).toUpperCase() + defaultProvider.slice(1)})`;
-                    
-                    // Update all provider dropdowns
-                    ['llmProvider', 'batchLlmProvider', 'chatLlmProvider'].forEach(dropdownId => {
-                        const dropdown = document.getElementById(dropdownId);
-                        if (dropdown) {
-                            dropdown.options[0].text = autoOptionText;
-                        }
-                    });
-                    
-                    // Since Ollama is the default, load its models by default
-                    // This ensures the model dropdown shows available models immediately
-                    loadLLMModels('ollama');
-                    loadBatchLLMModels('ollama');
-                    loadChatLLMModels('ollama');
-                })
-                .catch(error => {
-                    console.error('Error loading default provider:', error);
-                    // Fallback to Ollama
-                    loadLLMModels('ollama');
-                    loadBatchLLMModels('ollama');
-                    loadChatLLMModels('ollama');
-                });
+            // Load models for the current provider selections after providers are loaded
+            // This ensures models are loaded for the correct providers
+            setTimeout(() => {
+                const llmProvider = document.getElementById('llmProvider').value;
+                const batchLlmProvider = document.getElementById('batchLlmProvider').value;
+                const chatLlmProvider = document.getElementById('chatLlmProvider').value;
+                
+                loadLLMModels(llmProvider || 'ollama');
+                loadBatchLLMModels(batchLlmProvider || 'ollama');
+                loadChatLLMModels(chatLlmProvider || 'ollama');
+            }, 100); // Small delay to ensure providers are loaded first
         });
 
         // Chat functionality

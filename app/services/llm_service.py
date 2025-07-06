@@ -9,6 +9,7 @@ class LLMProvider(Enum):
     OLLAMA = "ollama"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    GOOGLE = "google"
 
 class LLMService:
     def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
@@ -47,6 +48,8 @@ class LLMService:
             return os.getenv("OPENAI_MODEL", "gpt-4")
         elif self.current_provider == LLMProvider.ANTHROPIC:
             return os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")
+        elif self.current_provider == LLMProvider.GOOGLE:
+            return os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
         return "llama3.2:latest"  # Fallback
     
     def _load_provider_config(self):
@@ -70,6 +73,13 @@ class LLMService:
                 print("Warning: ANTHROPIC_API_KEY not found in environment")
             # Anthropic can take longer for complex models
             self.timeout = int(os.getenv("ANTHROPIC_TIMEOUT", "90"))  # 1.5 minutes default
+        elif self.current_provider == LLMProvider.GOOGLE:
+            self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+            self.api_key = os.getenv("GOOGLE_API_KEY")
+            if not self.api_key:
+                print("Warning: GOOGLE_API_KEY not found in environment")
+            # Google Gemini is usually fast
+            self.timeout = int(os.getenv("GOOGLE_TIMEOUT", "60"))  # 1 minute default
     
     def refresh_config(self):
         """Refresh configuration from environment variables"""
@@ -86,6 +96,8 @@ class LLMService:
             return self._generate_openai(prompt, max_tokens, temperature)
         elif self.current_provider == LLMProvider.ANTHROPIC:
             return self._generate_anthropic(prompt, max_tokens, temperature)
+        elif self.current_provider == LLMProvider.GOOGLE:
+            return self._generate_google(prompt, max_tokens, temperature)
         else:
             print(f"Unknown provider: {self.current_provider}")
             return None
@@ -180,6 +192,43 @@ class LLMService:
             print(f"Anthropic generation error: {e}")
         return None
 
+    def _generate_google(self, prompt: str, max_tokens: int, temperature: float) -> Optional[str]:
+        """Generate text using Google Gemini API"""
+        if not self.api_key:
+            print("Google API key not configured")
+            return None
+        
+        url = f"{self.base_url}/models/{self.current_model}:generateContent"
+        headers = {
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature
+            }
+        }
+        
+        try:
+            response = requests.post(f"{url}?key={self.api_key}", headers=headers, json=payload, timeout=self.timeout)
+            if response.ok:
+                data = response.json()
+                return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            else:
+                print(f"Google Gemini API error: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"Google Gemini generation error: {e}")
+        return None
+
     def list_models(self) -> Optional[List[str]]:
         """List available models for the current provider"""
         if self.current_provider == LLMProvider.OLLAMA:
@@ -188,6 +237,8 @@ class LLMService:
             return self._list_openai_models()
         elif self.current_provider == LLMProvider.ANTHROPIC:
             return self._list_anthropic_models()
+        elif self.current_provider == LLMProvider.GOOGLE:
+            return self._list_google_models()
         return None
 
     def _list_ollama_models(self) -> Optional[List[str]]:
@@ -265,6 +316,34 @@ class LLMService:
             "claude-2.0"
         ]
 
+    def _list_google_models(self) -> Optional[List[str]]:
+        """List available Google Gemini models"""
+        if not self.api_key:
+            return None
+        
+        try:
+            # Try to fetch models from Google AI API
+            url = f"{self.base_url}/models"
+            response = requests.get(f"{url}?key={self.api_key}", timeout=10)
+            if response.ok:
+                data = response.json()
+                # Filter for Gemini models and sort by name
+                gemini_models = [
+                    model["name"].split("/")[-1] for model in data.get("models", [])
+                    if "gemini" in model["name"].lower()
+                ]
+                return sorted(gemini_models)
+        except Exception as e:
+            print(f"Could not fetch Google models from API: {e}")
+        
+        # Fallback to common Google Gemini models
+        return [
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",
+            "gemini-1.0-pro-001"
+        ]
+
     def get_available_providers(self) -> List[Dict[str, Any]]:
         """Get list of available providers with their configurations"""
         providers = []
@@ -302,6 +381,16 @@ class LLMService:
             "available": bool(anthropic_key),
             "requires_api_key": True,
             "default_model": os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")
+        })
+        
+        # Check Google Gemini
+        google_key = os.getenv("GOOGLE_API_KEY")
+        providers.append({
+            "name": "google",
+            "display_name": "Google Gemini",
+            "available": bool(google_key),
+            "requires_api_key": True,
+            "default_model": os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
         })
         
         return providers
