@@ -7,8 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1400px;
-            margin: 0 auto;
+            margin: 0;
             padding: 20px;
             background-color: #f5f5f5;
         }
@@ -18,6 +17,10 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             margin-bottom: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            min-height: 100vh;
         }
         .section {
             margin-bottom: 30px;
@@ -195,7 +198,7 @@
         /* Chat Interface Styles */
         .chat-container {
             display: flex;
-            height: 1000px;
+            height: 1200px;
             min-height: 800px;
             width: 100%;
             border: 1px solid #ddd;
@@ -214,6 +217,9 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            min-height: 0;
+            height: 100%;
+            position: relative;
         }
         .cover-letters-panel {
             display: flex;
@@ -249,17 +255,18 @@
             background-color: #ddd;
         }
         .chat-messages {
-            flex: 1;
+            flex: 1 1 auto;
             padding: 24px;
             overflow-y: auto;
             background-color: white;
-            min-height: 250px;
+            min-height: 300px;
             font-size: 15px;
         }
         .chat-input-area {
             padding: 24px;
             border-top: 1px solid #ddd;
             background-color: #f8f9fa;
+            position: relative;
         }
         
         .form-row {
@@ -637,6 +644,21 @@
         .view-item-btn:hover {
             background: #138496;
         }
+        .chat-main.save-popup-active {
+            padding-bottom: 120px; /* Enough space for the popup */
+            transition: padding-bottom 0.2s;
+        }
+        @media (max-width: 1200px) {
+            .container { 
+                margin: 0 10px;
+                padding: 20px;
+                min-height: 90vh;
+            }
+            .chat-container { 
+                height: 600px; 
+                min-height: 500px; 
+            }
+        }
     </style>
 </head>
 <body>
@@ -893,7 +915,7 @@
                             <div class="cover-letter-section">
                                 <h4>✏️ Revised Version</h4>
                                 <div class="revised-tabs">
-                                    <button class="revised-tab revised-tab-active" id="showChangesTab" onclick="switchRevisedTab('diff')">Show Changes</button>
+                                    <button class="revised-tab revised-tab-active" id="showChangesTab" onclick="toggleDiffView()">Show Changes</button>
                                     <button class="revised-tab" id="editRevisedTab" onclick="switchRevisedTab('edit')">Edit Revised Version</button>
                                 </div>
                                 <div id="revisedDiffPanel" style="display: block;">
@@ -1770,6 +1792,7 @@
 
         // --- Revised Version Tab Logic ---
         let revisedTab = 'diff'; // 'diff' or 'edit'
+        let diffViewMode = 'diff'; // 'diff' (strikethrough) or 'final' (complete revised)
         function switchRevisedTab(tab) {
             revisedTab = tab;
             document.getElementById('showChangesTab').classList.toggle('revised-tab-active', tab === 'diff');
@@ -1777,7 +1800,7 @@
             document.getElementById('revisedDiffPanel').style.display = tab === 'diff' ? 'block' : 'none';
             document.getElementById('revisedEditPanel').style.display = tab === 'edit' ? 'block' : 'none';
             if (tab === 'diff') {
-                updateDiffDisplay();
+                updateDiffDisplay(diffViewMode);
             } else {
                 // Populate editable content with latest revised version, preserving formatting
                 const revisedContent = document.getElementById('revisedDiffContent').textContent;
@@ -1792,6 +1815,18 @@
         }
         // --- End Revised Version Tab Logic ---
 
+        // Function to toggle between diff view and final view
+        function toggleDiffView() {
+            if (diffViewMode === 'diff') {
+                diffViewMode = 'final';
+                document.getElementById('showChangesTab').textContent = 'Show Diff';
+            } else {
+                diffViewMode = 'diff';
+                document.getElementById('showChangesTab').textContent = 'Show Changes';
+            }
+            updateDiffDisplay(diffViewMode);
+        }
+
         // Patch selectCoverLetter to update both panels
         async function selectCoverLetter(id, title) {
             currentCoverLetter = id;
@@ -1802,6 +1837,9 @@
             document.getElementById('exportButtons').style.display = 'flex';
             document.getElementById('saveOptions').style.display = 'none';
             window.updatedCoverLetterContent = null;
+            // Reset diff view mode to 'diff' when selecting a new cover letter
+            diffViewMode = 'diff';
+            document.getElementById('showChangesTab').textContent = 'Show Changes';
             try {
                 const response = await fetch(`/cover-letter/${id}`);
                 const data = await response.json();
@@ -1814,7 +1852,7 @@
                     document.getElementById('coverLettersPanel').style.display = 'flex';
                     originalContent = data.generated_content;
                     currentContent = data.generated_content;
-                    updateDiffDisplay();
+                    updateDiffDisplay(diffViewMode);
                     // Reset to diff tab when selecting a new cover letter
                     switchRevisedTab('diff');
                 }
@@ -1902,7 +1940,7 @@
         });
 
         // Unified function to update diff display
-        function updateDiffDisplay() {
+        function updateDiffDisplay(viewMode) {
             const currentText = document.getElementById('currentCoverLetterContent').textContent;
             const revisedText = document.getElementById('revisedDiffContent').textContent;
             
@@ -1920,13 +1958,19 @@
                 document.getElementById('noChangesMessage').style.display = 'none';
                 document.getElementById('revisedDiffContent').style.display = 'block';
                 
-                // Generate and display the diff
-                const diffHtml = generateDiff(normalizedCurrent, normalizedRevised);
-                document.getElementById('revisedDiffContent').innerHTML = diffHtml;
-                
-                // Count changes for status
-                const changeCount = countChanges(diffHtml);
-                document.getElementById('diffStatus').textContent = `${changeCount} changes detected`;
+                if (viewMode === 'final') {
+                    // Show the complete revised version without diff highlighting
+                    document.getElementById('revisedDiffContent').textContent = revisedText;
+                    document.getElementById('diffStatus').textContent = 'Showing final revised version';
+                } else {
+                    // Show the diff with strikethrough and additions
+                    const diffHtml = generateDiff(normalizedCurrent, normalizedRevised);
+                    document.getElementById('revisedDiffContent').innerHTML = diffHtml;
+                    
+                    // Count changes for status
+                    const changeCount = countChanges(diffHtml);
+                    document.getElementById('diffStatus').textContent = `${changeCount} changes detected`;
+                }
             }
         }
 
@@ -2049,16 +2093,25 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    addMessage(result.response, 'assistant');
+                    /* addMessage(result.response, 'assistant'); */
                     if (result.updated_content) {
-                        addMessage(`✅ Cover letter updated! Here's the new version:\n\n${result.updated_content}`, 'assistant');
+                        // Store the previous revised content BEFORE updating the DOM
+                        const prevRevisedText = document.getElementById('revisedDiffContent').textContent;
+                        // Normalize line endings for comparison
+                        const normalizedPrevRevised = prevRevisedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const normalizedUpdated = result.updated_content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        if (normalizedPrevRevised !== normalizedUpdated) {
+                            addMessage(`✅ Cover letter updated! Here's the new version:\n\n${result.updated_content}`, 'assistant');
+                        } else {
+                            addMessage('No changes were made to your cover letter.', 'assistant');
+                        }
                         // Update only the revised version panels, NEVER the current version
                         document.getElementById('revisedDiffContent').textContent = result.updated_content;
                         document.getElementById('revisedEditContent').textContent = result.updated_content;
                         document.getElementById('saveOptions').style.display = 'block';
                         document.getElementById('saveStatus').textContent = 'Your cover letter has been updated. Choose how to save it:';
                         window.updatedCoverLetterContent = result.updated_content;
-                        updateDiffDisplay();
+                        updateDiffDisplay(diffViewMode);
                     }
                 } else {
                     addMessage(`❌ Error: ${result.detail}`, 'assistant');
@@ -2091,6 +2144,10 @@
                     saveStatus.textContent = '✅ Current version updated successfully!';
                     // NOW update the current version to show the saved content
                     document.getElementById('currentCoverLetterContent').textContent = content;
+                    // Also update the revised panels to match the new current version
+                    document.getElementById('revisedDiffContent').textContent = content;
+                    document.getElementById('revisedEditContent').textContent = content;
+                    updateDiffDisplay(diffViewMode);
                     // Update stored content
                     originalContent = content;
                     currentContent = content;
@@ -2704,6 +2761,20 @@
             }
             await exportCoverLetter(currentCoverLetter, format);
         }
+
+        // Save popup logic: ensure chat controls are always visible
+        function showSaveOptions() {
+            document.getElementById('saveOptions').style.display = 'block';
+            document.querySelector('.chat-main').classList.add('save-popup-active');
+        }
+        function hideSaveOptions() {
+            document.getElementById('saveOptions').style.display = 'none';
+            document.querySelector('.chat-main').classList.remove('save-popup-active');
+        }
+        // Replace any code that shows/hides #saveOptions with showSaveOptions()/hideSaveOptions()
+        // Example usage:
+        // showSaveOptions(); // when unsaved changes detected
+        // hideSaveOptions(); // when changes are saved or cancelled
     </script>
 </body>
 </html> 

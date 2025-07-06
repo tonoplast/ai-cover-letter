@@ -54,16 +54,22 @@ class LLMService:
         if self.current_provider == LLMProvider.OLLAMA:
             self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
             self.api_key = None
+            # Ollama can take longer for local models
+            self.timeout = int(os.getenv("OLLAMA_TIMEOUT", "120"))  # 2 minutes default
         elif self.current_provider == LLMProvider.OPENAI:
             self.base_url = "https://api.openai.com/v1"
             self.api_key = os.getenv("OPENAI_API_KEY")
             if not self.api_key:
                 print("Warning: OPENAI_API_KEY not found in environment")
+            # OpenAI is usually faster
+            self.timeout = int(os.getenv("OPENAI_TIMEOUT", "60"))  # 1 minute default
         elif self.current_provider == LLMProvider.ANTHROPIC:
             self.base_url = "https://api.anthropic.com/v1"
             self.api_key = os.getenv("ANTHROPIC_API_KEY")
             if not self.api_key:
                 print("Warning: ANTHROPIC_API_KEY not found in environment")
+            # Anthropic can take longer for complex models
+            self.timeout = int(os.getenv("ANTHROPIC_TIMEOUT", "90"))  # 1.5 minutes default
     
     def refresh_config(self):
         """Refresh configuration from environment variables"""
@@ -97,7 +103,7 @@ class LLMService:
             }
         }
         try:
-            response = requests.post(url, json=payload, timeout=60)
+            response = requests.post(url, json=payload, timeout=self.timeout)
             if response.ok:
                 data = response.json()
                 return data.get("response", "")
@@ -132,7 +138,7 @@ class LLMService:
         }
         
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=60)
+            response = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
             if response.ok:
                 data = response.json()
                 return data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -164,7 +170,7 @@ class LLMService:
         }
         
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=60)
+            response = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
             if response.ok:
                 data = response.json()
                 return data.get("content", [{}])[0].get("text", "")
@@ -187,7 +193,7 @@ class LLMService:
     def _list_ollama_models(self) -> Optional[List[str]]:
         """List available Ollama models"""
         try:
-            response = requests.get(f"{self.base_url}/api/tags")
+            response = requests.get(f"{self.base_url}/api/tags", timeout=10)  # Shorter timeout for model listing
             if response.ok:
                 data = response.json()
                 return [model["name"] for model in data.get("models", [])]
@@ -213,6 +219,8 @@ class LLMService:
                     if 'gpt' in model.id.lower() and 'instruct' not in model.id.lower()
                 ]
                 return sorted(chat_models)
+        except ImportError:
+            print("OpenAI package not installed. Using fallback models.")
         except Exception as e:
             print(f"Could not fetch OpenAI models from API: {e}")
         
@@ -243,6 +251,8 @@ class LLMService:
                     if 'claude' in model.id.lower()
                 ]
                 return sorted(claude_models)
+        except ImportError:
+            print("Anthropic package not installed. Using fallback models.")
         except Exception as e:
             print(f"Could not fetch Anthropic models from API: {e}")
         

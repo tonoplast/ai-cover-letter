@@ -912,60 +912,23 @@ Respond with ONLY the revised cover letter if changes are requested.
         updated_content = None
         if "Dear" in response:
             start_index = response.find("Dear")
-            # Find the end of the cover letter (look for common closings)
-            end_phrases = ["Sincerely,", "Best regards,", "Thank you,", "Yours truly,", "Respectfully,"]
-            end_index = -1
-            
-            for phrase in end_phrases:
-                phrase_index = response.find(phrase, start_index)
-                if phrase_index != -1:
-                    # Find the end of the signature (look for the end of the document)
-                    # Take everything up to the closing phrase plus a few lines for signature
-                    lines_after = response[phrase_index:].split('\n')
-                    signature_lines = 0
-                    for i, line in enumerate(lines_after):
-                        if i > 0 and line.strip() == "":
-                            # Found a blank line, this might be the end
-                            signature_lines = i
-                            break
-                        elif i >= 3:  # Take at most 3 lines after closing
-                            signature_lines = i + 1
-                            break
-                    
-                    end_index = phrase_index + len('\n'.join(lines_after[:signature_lines]))
+            # Take everything from 'Dear' to the end, unless you see obvious LLM commentary
+            body = response[start_index:]
+            lines = body.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                line_lower = line.strip().lower()
+                if (line_lower.startswith("please let me know") or 
+                    line_lower.startswith("if you'd like") or
+                    line_lower.startswith("feel free to") or
+                    ("further changes" in line_lower and "let me know" in line_lower)):
                     break
-            
-            if end_index == -1:
-                # If no closing found, take everything from "Dear" onwards
-                end_index = len(response)
-            
-            if start_index != -1 and end_index > start_index:
-                # Extract the cover letter body with preserved formatting
-                body = response[start_index:end_index]
-                
-                # Clean up any trailing meta/instruction lines more carefully
-                lines = body.split('\n')
-                cleaned_lines = []
-                for line in lines:
-                    line_lower = line.strip().lower()
-                    # Only remove obvious instruction lines, be more conservative
-                    if (line_lower.startswith("please let me know") or 
-                        line_lower.startswith("if you'd like") or
-                        line_lower.startswith("feel free to") or
-                        "further changes" in line_lower and "let me know" in line_lower):
-                        break
-                    cleaned_lines.append(line)
-                
-                # Join lines while preserving original formatting and normalize line endings
-                updated_content = '\n'.join(cleaned_lines).rstrip()
-                
-                # Ensure consistent line endings and preserve paragraph spacing
-                updated_content = _preserve_formatting(updated_content)
-                
-                # Only update if content actually changed
-                if updated_content != cover_letter.generated_content:
-                    cover_letter.generated_content = updated_content
-                    db.commit()
+                cleaned_lines.append(line)
+            updated_content = '\n'.join(cleaned_lines).rstrip()
+            updated_content = _preserve_formatting(updated_content)
+            if updated_content != cover_letter.generated_content:
+                cover_letter.generated_content = updated_content
+                db.commit()
         
         return {
             "response": response,

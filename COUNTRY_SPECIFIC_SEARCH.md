@@ -2,12 +2,13 @@
 
 ## Overview
 
-The AI Cover Letter Generator now supports country-specific company research, allowing you to focus search results on specific countries or regions. This is particularly useful for:
+The AI Cover Letter Generator supports country-specific company research, allowing you to focus search results on specific countries or regions. This is particularly useful for:
 
 - Finding local offices and regional information
 - Getting country-specific company details
 - Researching companies in specific markets
 - Improving relevance for international job applications
+- Enhancing company research with local context
 
 ## How It Works
 
@@ -26,7 +27,8 @@ When a country is selected, it's automatically added to the search query:
 
 ### Supported Providers
 All search providers support country-specific search:
-- **Tavily AI** - Adds country to search query
+- **Tavily AI** - Adds country to search query for comprehensive results
+- **OpenAI** - Includes country context in AI-powered search
 - **Google AI** - Includes country context in AI prompt
 - **Brave Search** - Adds country to search parameters
 - **DuckDuckGo** - Includes country in search query
@@ -84,6 +86,13 @@ The system supports 20 countries across different regions:
 3. **Select a country** (optional)
 4. Click "Research Company"
 
+### UI Layout
+The country selection is integrated into the clean, logical interface:
+- **Vertical Stacking**: Country dropdown appears below provider selection
+- **Conditional Display**: Shows only when company research is enabled
+- **Consistent Design**: Matches the overall interface style
+- **Clear Labeling**: "Country (Optional)" for clarity
+
 ## API Usage
 
 ### Single Generation with Country Focus
@@ -95,7 +104,7 @@ curl -X POST "http://localhost:8000/generate-cover-letter" \
     "company_name": "Microsoft",
     "job_description": "...",
     "include_company_research": true,
-    "research_provider": "brave",
+    "research_provider": "tavily",
     "research_country": "Australia"
   }'
 ```
@@ -109,8 +118,19 @@ curl -X POST "http://localhost:8000/batch-cover-letters" \
     "job_description": "...",
     "websites": ["https://example.com/job1", "https://example.com/job2"],
     "include_company_research": true,
-    "research_provider": "tavily",
+    "research_provider": "openai",
     "research_country": "United Kingdom"
+  }'
+```
+
+### Manual Company Research with Country
+```bash
+curl -X POST "http://localhost:8000/company-research" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Google",
+    "provider": "brave",
+    "country": "Germany"
   }'
 ```
 
@@ -120,21 +140,31 @@ curl -X POST "http://localhost:8000/batch-cover-letters" \
 - Find country-specific offices and operations
 - Get regional company information
 - Understand local market presence
+- Research companies in your target market
 
 ### 2. **Better Context**
 - Research companies in your target market
 - Get location-specific company details
 - Find regional headquarters and offices
+- Understand local industry context
 
 ### 3. **Improved Accuracy**
 - More relevant search results
 - Country-specific company information
 - Local industry context
+- Better company understanding
 
 ### 4. **International Applications**
 - Research companies in specific countries
 - Get regional office information
 - Understand local market presence
+- Tailor applications to local markets
+
+### 5. **Enhanced Research Quality**
+- AI-powered search with OpenAI provider
+- Comprehensive results with Tavily
+- Privacy-focused options with Brave/DuckDuckGo
+- Self-hosted options for complete control
 
 ## Examples
 
@@ -150,7 +180,13 @@ curl -X POST "http://localhost:8000/batch-cover-letters" \
 - **Search Query:** "Google company about us mission vision United Kingdom"
 - **Result:** Emphasizes Google's UK presence, London offices, and European operations
 
-### Example 3: Global Search
+### Example 3: German Job Application
+- **Company:** SAP
+- **Country:** Germany
+- **Search Query:** "SAP company about us mission vision Germany"
+- **Result:** Highlights SAP's German headquarters, local operations, and European market
+
+### Example 4: Global Search
 - **Company:** Apple
 - **Country:** (empty)
 - **Search Query:** "Apple company about us mission vision"
@@ -159,6 +195,22 @@ curl -X POST "http://localhost:8000/batch-cover-letters" \
 ## Configuration
 
 No additional configuration is required. The country selection is available in the UI when company research is enabled.
+
+### Environment Variables
+The country-specific search works with existing search provider configurations:
+```env
+# For Tavily AI (recommended)
+TAVILY_API_KEY=tvly-your-key-here
+
+# For OpenAI (can be used for both LLM and search)
+OPENAI_API_KEY=your-openai-key-here
+
+# For Google AI
+GOOGLE_API_KEY=your-google-key-here
+
+# For Brave Search (optional)
+BRAVE_API_KEY=your-brave-key-here
+```
 
 ## Testing
 
@@ -172,6 +224,7 @@ This will test:
 - Country-specific searches for multiple countries
 - Local company searches
 - Different search providers
+- UI integration and display
 
 ## Best Practices
 
@@ -180,11 +233,20 @@ This will test:
 - **International companies** - Get regional office information
 - **Local companies** - Ensure you get the right company (e.g., Woolworths Australia vs UK)
 - **Regional roles** - Understand local market presence
+- **Industry-specific research** - Get local industry context
 
 ### When to Use Global Search
 - **Global companies** - Get general company information
 - **Remote positions** - Company location doesn't matter
 - **Unknown company location** - Start with global search
+- **General research** - Get broad company overview
+
+### Provider Selection for Country Search
+- **Tavily AI**: Best for comprehensive country-specific results
+- **OpenAI**: AI-powered search with country context
+- **Google AI**: Good for large companies with global presence
+- **Brave Search**: Privacy-focused country research
+- **DuckDuckGo**: Free option for basic country research
 
 ## Troubleshooting
 
@@ -193,16 +255,37 @@ This will test:
 - Check if the company has operations in the selected country
 - Try a different search provider
 - Verify the company name spelling
+- Consider using a different country or global search
 
 ### Irrelevant Results
 - The company might not have significant presence in the selected country
 - Try a different country or global search
 - Use a different search provider
+- Check if the company name is ambiguous (e.g., multiple companies with same name)
 
-## Future Enhancements
+### Provider-Specific Issues
+- **Tavily**: Check API key and rate limits
+- **OpenAI**: Verify API key and model availability
+- **Google AI**: Ensure API key is valid
+- **Brave**: Works without API key, but better with one
+- **Self-hosted**: Verify services are running and accessible
 
-Potential future improvements:
-- **Region selection** (e.g., "Europe", "Asia-Pacific")
-- **City-specific search** for major cities
-- **Language-specific search** for non-English companies
-- **Industry-specific country focus** (e.g., tech companies in specific regions) 
+## Integration with Other Features
+
+### LLM Provider Selection
+Country-specific search works seamlessly with:
+- **Ollama (Local)**: Privacy-focused local search
+- **OpenAI**: AI-powered search with country context
+- **Anthropic Claude**: High-quality search results
+
+### Document Weighting
+Country-specific research enhances:
+- **RAG Performance**: Better context for cover letter generation
+- **Company Understanding**: More relevant company information
+- **Local Relevance**: Country-specific insights
+
+### Batch Processing
+Country focus applies to:
+- **All companies** in batch generation
+- **Consistent research** across multiple jobs
+- **Efficient processing** with same country focus 
