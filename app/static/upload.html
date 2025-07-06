@@ -712,6 +712,19 @@
                     </label>
                     <small style="color: #666;">When enabled, the AI will research the company and include relevant information (mission, values, industry) in your cover letter. Only includes information that can be verified.</small>
                 </div>
+                <div class="form-group" id="singleResearchProviderGroup" style="display: none;">
+                    <label for="searchProvider">Research Provider:</label>
+                    <select id="searchProvider">
+                        <option value="">Auto (Best Available)</option>
+                        <option value="tavily">Tavily AI (Recommended)</option>
+                        <option value="google">Google AI</option>
+                        <option value="brave">Brave Search (Privacy-focused)</option>
+                        <option value="yacy">YaCy (Self-hosted)</option>
+                        <option value="searxng">SearXNG (Self-hosted)</option>
+                        <option value="duckduckgo">DuckDuckGo (Free)</option>
+                    </select>
+                    <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
+                </div>
                 <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
                 <div id="coverLetterPreview"></div>
             </div>
@@ -750,6 +763,19 @@
                         Include Company Research (Batch)
                     </label>
                     <small style="color: #666;">When enabled, the AI will research each company and include relevant information in cover letters.</small>
+                </div>
+                <div class="form-group" id="batchResearchProviderGroup" style="display: none;">
+                    <label for="batchResearchProvider">Research Provider:</label>
+                    <select id="batchResearchProvider">
+                        <option value="">Auto (Best Available)</option>
+                        <option value="tavily">Tavily AI (Recommended)</option>
+                        <option value="google">Google AI</option>
+                        <option value="brave">Brave Search (Privacy-focused)</option>
+                        <option value="yacy">YaCy (Self-hosted)</option>
+                        <option value="searxng">SearXNG (Self-hosted)</option>
+                        <option value="duckduckgo">DuckDuckGo (Free)</option>
+                    </select>
+                    <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
                 </div>
                 <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
                 <div id="batchStatus"></div>
@@ -1101,6 +1127,7 @@
             const jobDescription = document.getElementById('jobDescription').value.trim();
             const tone = document.getElementById('tone').value;
             const includeCompanyResearch = document.getElementById('includeCompanyResearch').checked;
+            const searchProvider = document.getElementById('searchProvider').value;
 
             if (!jobTitle || !companyName || !jobDescription) {
                 showStatus('❌ Please fill in all required fields', 'error');
@@ -1120,7 +1147,8 @@
                         company_name: companyName,
                         job_description: jobDescription,
                         tone: tone,
-                        include_company_research: includeCompanyResearch
+                        include_company_research: includeCompanyResearch,
+                        research_provider: searchProvider || null
                     })
                 });
 
@@ -1287,6 +1315,34 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Load search providers info
             loadSearchProviders();
+            
+            // Add event listener for batch company research checkbox
+            document.getElementById('batchIncludeCompanyResearch').addEventListener('change', function() {
+                const providerGroup = document.getElementById('batchResearchProviderGroup');
+                if (this.checked) {
+                    providerGroup.style.display = 'block';
+                } else {
+                    providerGroup.style.display = 'none';
+                }
+            });
+            
+            // Add event listener for single company research checkbox
+            document.getElementById('includeCompanyResearch').addEventListener('change', function() {
+                const providerGroup = document.getElementById('singleResearchProviderGroup');
+                if (this.checked) {
+                    providerGroup.style.display = 'block';
+                } else {
+                    providerGroup.style.display = 'none';
+                }
+            });
+            
+            // Show provider selection if company research is already checked
+            if (document.getElementById('includeCompanyResearch').checked) {
+                document.getElementById('singleResearchProviderGroup').style.display = 'block';
+            }
+            if (document.getElementById('batchIncludeCompanyResearch').checked) {
+                document.getElementById('batchResearchProviderGroup').style.display = 'block';
+            }
         });
 
         // Chat functionality
@@ -2175,6 +2231,7 @@
             const tone = document.getElementById('batchTone').value;
             const delay = parseInt(document.getElementById('batchDelay').value) || 3;
             const includeCompanyResearch = document.getElementById('batchIncludeCompanyResearch').checked;
+            const researchProvider = document.getElementById('batchResearchProvider').value;
             
             if (!websitesRaw) {
                 showStatus('❌ Please enter at least one job ad URL', 'error', 'batchStatus');
@@ -2193,7 +2250,8 @@
                         tone: tone,
                         websites: websites,
                         delay_seconds: delay,
-                        include_company_research: includeCompanyResearch
+                        include_company_research: includeCompanyResearch,
+                        research_provider: researchProvider || null
                     })
                 });
                 const result = await response.json();

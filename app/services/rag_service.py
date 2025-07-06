@@ -16,6 +16,20 @@ class RAGService:
         except Exception as e:
             print(f"Could not load embedding model: {e}")
             self.embedding_model = None
+        
+        # Load document weighting configuration
+        self.base_weight = float(os.getenv('DOCUMENT_BASE_WEIGHT', '1.0'))
+        self.recency_period_days = int(os.getenv('DOCUMENT_RECENCY_PERIOD_DAYS', '365'))
+        self.min_weight_multiplier = float(os.getenv('DOCUMENT_MIN_WEIGHT_MULTIPLIER', '0.1'))
+        self.recency_weighting_enabled = os.getenv('DOCUMENT_RECENCY_WEIGHTING_ENABLED', 'true').lower() == 'true'
+        
+        # Document type specific weights
+        self.document_type_weights = {
+            'cv': float(os.getenv('CV_WEIGHT_MULTIPLIER', '2.0')),
+            'cover_letter': float(os.getenv('COVER_LETTER_WEIGHT_MULTIPLIER', '1.8')),
+            'linkedin': float(os.getenv('LINKEDIN_WEIGHT_MULTIPLIER', '1.2')),
+            'other': float(os.getenv('OTHER_DOCUMENT_WEIGHT_MULTIPLIER', '0.8'))
+        }
     
     def create_embeddings(self, text: str) -> Optional[List[float]]:
         """Create embeddings for a given text"""
@@ -48,7 +62,8 @@ class RAGService:
             return {"chunks": [], "embeddings": []}
         
         # Extract chunks from document content
-        chunks = self.extract_chunks(document.content)
+        content: str = document.content
+        chunks = self.extract_chunks(content)
         
         # Create embeddings for each chunk
         embeddings = []
@@ -88,14 +103,24 @@ class RAGService:
                     # Calculate cosine similarity
                     similarity = self.cosine_similarity(query_embedding, embedding)
                     
-                    # Apply recency boost (more recent documents get higher weight)
-                    # Calculate days since upload (newer = higher boost)
-                    from datetime import datetime
-                    days_since_upload = (datetime.now() - doc.uploaded_at).days
-                    recency_boost = max(0.1, 1.0 - (days_since_upload / 365))  # Boost decreases over time
+                    # Calculate document weight based on type and recency
+                    doc_type = doc.document_type.lower()
+                    type_weight = self.document_type_weights.get(doc_type, self.document_type_weights['other'])
                     
-                    # Combine similarity with recency boost
-                    adjusted_similarity = similarity * recency_boost
+                    # Apply recency weighting if enabled
+                    if self.recency_weighting_enabled:
+                        from datetime import datetime
+                        days_since_upload = (datetime.now() - doc.uploaded_at).days
+                        recency_multiplier = max(self.min_weight_multiplier, 
+                                               1.0 - (days_since_upload / self.recency_period_days))
+                    else:
+                        recency_multiplier = 1.0
+                    
+                    # Calculate final weight combining type and recency
+                    final_weight = self.base_weight * type_weight * recency_multiplier
+                    
+                    # Combine similarity with document weight
+                    adjusted_similarity = similarity * final_weight
                     
                     all_results.append({
                         "chunk": chunk,
@@ -104,7 +129,9 @@ class RAGService:
                         "document_id": doc.id,
                         "document_type": doc.document_type,
                         "uploaded_at": doc.uploaded_at,
-                        "recency_boost": recency_boost,
+                        "type_weight": type_weight,
+                        "recency_multiplier": recency_multiplier,
+                        "final_weight": final_weight,
                         "chunk_index": i
                     })
         
@@ -114,9 +141,9 @@ class RAGService:
     
     def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors"""
-        vec1 = np.array(vec1)
-        vec2 = np.array(vec2)
-        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+        vec1_array = np.array(vec1)
+        vec2_array = np.array(vec2)
+        return float(np.dot(vec1_array, vec2_array) / (np.linalg.norm(vec1_array) * np.linalg.norm(vec2_array)))
     
     def get_relevant_context(self, job_title: str, job_description: str, company_name: str) -> str:
         """Get relevant context from uploaded documents for cover letter generation"""
@@ -150,3 +177,28 @@ ADDITIONAL RELEVANT CONTEXT FROM YOUR DOCUMENTS:
 Use this additional context to make your cover letter more specific and relevant to your actual background and experience.
 """
         return enhanced_prompt 
+
+    def calculate_document_weight(self, document: Document) -> float:
+        """Calculate the weight for a document based on type and recency"""
+        # Get document type weight
+        doc_type = document.document_type.lower()
+        type_weight = self.document_type_weights.get(doc_type, self.document_type_weights['other'])
+        
+        # Apply recency weighting if enabled
+        if self.recency_weighting_enabled:
+            from datetime import datetime
+            days_since_upload = (datetime.now() - document.uploaded_at).days
+            recency_multiplier = max(self.min_weight_multiplier, 
+                                   1.0 - (days_since_upload / self.recency_period_days))
+        else:
+            recency_multiplier = 1.0
+        
+        # Calculate final weight combining type and recency
+        final_weight = self.base_weight * type_weight * recency_multiplier
+        
+        return final_weight
+
+    def get_document_type_weight(self, document_type: str) -> float:
+        """Get the weight multiplier for a specific document type"""
+        doc_type = document_type.lower()
+        return self.document_type_weights.get(doc_type, self.document_type_weights['other']) 

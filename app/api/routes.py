@@ -9,6 +9,7 @@ from app.services.company_research import CompanyResearchService
 from app.services.llm_service import LLMService
 from app.services.cover_letter_gen import CoverLetterGenerator
 from app.services.document_export import DocumentExporter
+from app.services.rag_service import RAGService
 from pathlib import Path
 import shutil
 import os
@@ -36,6 +37,7 @@ class BatchCoverLetterRequest(BaseModel):
     websites: List[str] = []
     delay_seconds: int = 3
     include_company_research: bool = True
+    research_provider: Optional[str] = None  # Provider for company research (tavily, google, brave, etc.)
 
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
@@ -60,12 +62,17 @@ def upload_document(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     parsed = document_parser.parse_document(str(file_path), document_type)
+    # Calculate document weight based on type
+    rag_service = RAGService(db)
+    document_weight = rag_service.get_document_type_weight(document_type)
+    
     doc = Document(
         filename=file.filename,
         file_path=str(file_path),
         document_type=document_type,
         content=parsed["content"],
-        parsed_data=parsed["parsed_data"]
+        parsed_data=parsed["parsed_data"],
+        weight=document_weight
     )
     db.add(doc)
     db.commit()
@@ -80,12 +87,17 @@ def import_linkedin(
 ):
     scraper = LinkedInScraper(email, password)
     profile_data = scraper.scrape_profile()
+    # Calculate document weight for LinkedIn
+    rag_service = RAGService(db)
+    document_weight = rag_service.get_document_type_weight("linkedin")
+    
     doc = Document(
         filename="linkedin_profile.json",
         file_path="",
         document_type="linkedin",
         content=str(profile_data),
-        parsed_data=profile_data
+        parsed_data=profile_data,
+        weight=document_weight
     )
     db.add(doc)
     db.commit()
@@ -331,7 +343,11 @@ def generate_cover_letter(
         else:
             # Perform new company research
             try:
-                research_result = company_research_service.search_company(req.company_name)
+                # Use the specified provider or fallback to default
+                research_result = company_research_service.search_company(
+                    req.company_name, 
+                    provider=req.research_provider
+                )
                 if research_result:
                     # Save the research to database
                     research = CompanyResearch(
@@ -984,7 +1000,11 @@ def batch_cover_letters(
             company_info = {}
             if req.include_company_research and job_info["company_name"]:
                 try:
-                    research_result = company_research_service.search_company(job_info["company_name"])
+                    # Use the specified provider or fallback to default
+                    research_result = company_research_service.search_company(
+                        job_info["company_name"], 
+                        provider=req.research_provider
+                    )
                     if research_result:
                         # Save the research to database
                         research = CompanyResearch(

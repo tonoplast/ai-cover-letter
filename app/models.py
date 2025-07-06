@@ -15,6 +15,7 @@ class Document(Base):
     parsed_data = Column(JSON)  # Structured data from parsing
     uploaded_at = Column(DateTime, default=func.now())
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
+    weight = Column(Float, default=1.0)  # Document weight for RAG ranking
     
     experiences = relationship("Experience", back_populates="document")
 

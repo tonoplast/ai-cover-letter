@@ -4,3 +4,6 @@
 app/__pycache__/database.cpython-311.pyc
 app/__pycache__/models.cpython-311.pyc
 app/services/__pycache__/rag_service.cpython-311.pyc
+*.pyc
+*.pyc
+*.pyc
