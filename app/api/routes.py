@@ -38,6 +38,7 @@ class BatchCoverLetterRequest(BaseModel):
     delay_seconds: int = 3
     include_company_research: bool = True
     research_provider: Optional[str] = None  # Provider for company research (tavily, google, brave, etc.)
+    research_country: Optional[str] = None  # Country to focus search on (e.g., "Australia", "United States", etc.)
 
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
@@ -339,14 +340,15 @@ def generate_cover_letter(
         company_research = db.query(CompanyResearch).filter(CompanyResearch.company_name.ilike(f"%{req.company_name}%")).order_by(CompanyResearch.researched_at.desc()).first()
         
         if company_research:
-            company_info = company_research.research_data if company_research else {}
+            company_info = company_research.research_data if company_research.research_data else {}
         else:
             # Perform new company research
             try:
                 # Use the specified provider or fallback to default
                 research_result = company_research_service.search_company(
                     req.company_name, 
-                    provider=req.research_provider
+                    provider=req.research_provider,
+                    country=req.research_country
                 )
                 if research_result:
                     # Save the research to database
@@ -362,6 +364,8 @@ def generate_cover_letter(
                     db.add(research)
                     db.commit()
                     company_info = research_result
+                else:
+                    company_info = {}
             except Exception as e:
                 print(f"Company research failed: {str(e)}")
                 # Continue without company research
@@ -385,7 +389,7 @@ def generate_cover_letter(
         company_name=req.company_name,
         job_description=req.job_description,
         generated_content=content,
-        company_research=company_info,
+        company_research=company_info,  # Store the full research data
         used_experiences=[],  # Empty since we're using CV data directly
         writing_style_analysis=merged_style
     )
@@ -1003,7 +1007,8 @@ def batch_cover_letters(
                     # Use the specified provider or fallback to default
                     research_result = company_research_service.search_company(
                         job_info["company_name"], 
-                        provider=req.research_provider
+                        provider=req.research_provider,
+                        country=req.research_country
                     )
                     if research_result:
                         # Save the research to database
@@ -1039,6 +1044,8 @@ def batch_cover_letters(
                 job_description=job_info["job_description"],
                 generated_content=cover_letter_content,
                 company_research=company_info,  # Save the company research data
+                used_experiences=[],  # Empty since we're using CV data directly
+                writing_style_analysis={},  # Empty for batch generation
                 generated_at=datetime.now()
             )
             db.add(cover_letter)

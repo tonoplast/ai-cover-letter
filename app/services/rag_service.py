@@ -146,18 +146,44 @@ class RAGService:
         return float(np.dot(vec1_array, vec2_array) / (np.linalg.norm(vec1_array) * np.linalg.norm(vec2_array)))
     
     def get_relevant_context(self, job_title: str, job_description: str, company_name: str) -> str:
-        """Get relevant context from uploaded documents for cover letter generation"""
+        """Get relevant context from uploaded documents and company research for cover letter generation"""
         query = f"{job_title} {job_description} {company_name}"
         relevant_chunks = self.find_relevant_chunks(query, top_k=3)
         
-        if not relevant_chunks:
-            return ""
-        
         context_parts = []
+        
+        # Add document chunks
         for chunk_data in relevant_chunks:
             chunk = chunk_data["chunk"]
             doc_type = chunk_data["document_type"]
             context_parts.append(f"[From {doc_type.upper()}]: {chunk[:300]}...")
+        
+        # Add company research data if available
+        try:
+            from app.models import CompanyResearch
+            company_research = self.db.query(CompanyResearch).filter(
+                CompanyResearch.company_name.ilike(f"%{company_name}%")
+            ).order_by(CompanyResearch.researched_at.desc()).first()
+            
+            if company_research and company_research.research_data:
+                research_data = company_research.research_data
+                research_context = []
+                
+                if research_data.get('mission'):
+                    research_context.append(f"Mission: {research_data['mission']}")
+                if research_data.get('vision'):
+                    research_context.append(f"Vision: {research_data['vision']}")
+                if research_data.get('values'):
+                    research_context.append(f"Values: {research_data['values']}")
+                if research_data.get('industry'):
+                    research_context.append(f"Industry: {research_data['industry']}")
+                if research_data.get('description'):
+                    research_context.append(f"Description: {research_data['description'][:200]}...")
+                
+                if research_context:
+                    context_parts.append(f"[From COMPANY RESEARCH]: {' | '.join(research_context)}")
+        except Exception as e:
+            print(f"Error adding company research to RAG context: {e}")
         
         return "\n\n".join(context_parts)
     

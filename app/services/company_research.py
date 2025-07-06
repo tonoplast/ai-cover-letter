@@ -103,8 +103,8 @@ class CompanyResearchService:
         """Get list of available search providers"""
         return [provider.value for provider in self.providers.keys()]
     
-    def search_company(self, company_name: str, provider: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Search for company info using specified or fallback provider"""
+    def search_company(self, company_name: str, provider: Optional[str] = None, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search for company info using specified or fallback provider with optional country focus"""
         
         # Determine which provider to use
         available_providers = [p.value for p in self.providers.keys()]
@@ -143,7 +143,7 @@ class CompanyResearchService:
             
             # Perform the search
             search_func = self.providers[search_provider]
-            result = search_func(company_name)
+            result = search_func(company_name, country)
             
             if result:
                 result['provider_used'] = search_provider.value
@@ -156,11 +156,16 @@ class CompanyResearchService:
             # Try manual fallback
             return self._manual_company_info(company_name)
     
-    def _search_duckduckgo(self, company_name: str) -> Optional[Dict[str, Any]]:
-        """Search using DuckDuckGo"""
+    def _search_duckduckgo(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using DuckDuckGo with optional country focus"""
         try:
             ddgs = DDGS()
-            results = list(ddgs.text(f"{company_name} company", max_results=3))
+            # Add country to search query if specified
+            search_query = f"{company_name} company"
+            if country:
+                search_query += f" {country}"
+            
+            results = list(ddgs.text(search_query, max_results=3))
             
             if not results:
                 return None
@@ -177,13 +182,16 @@ class CompanyResearchService:
             print(f"DuckDuckGo search error: {str(e)}")
             return None
     
-    def _search_google(self, company_name: str) -> Optional[Dict[str, Any]]:
-        """Search using Google Custom Search API"""
+    def _search_google(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using Google Custom Search API with optional country focus"""
         try:
             # Use Google's Generative AI for company research
             model = genai.GenerativeModel('gemini-pro')
+            
+            # Add country context to prompt if specified
+            country_context = f" in {country}" if country else ""
             prompt = f"""
-            Research the company \"{company_name}\" and provide the following information in JSON format:
+            Research the company \"{company_name}\"{country_context} and provide the following information in JSON format:
             {{
                 "company_name": "official company name",
                 "industry": "primary industry",
@@ -217,8 +225,8 @@ class CompanyResearchService:
             print(f"Google search error: {str(e)}")
             return None
     
-    def _search_tavily(self, company_name: str) -> Optional[Dict[str, Any]]:
-        """Search using Tavily AI"""
+    def _search_tavily(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using Tavily AI with optional country focus"""
         try:
             tavily_api_key = os.getenv('TAVILY_API_KEY')
             if not tavily_api_key:
@@ -229,10 +237,15 @@ class CompanyResearchService:
             if not tavily_api_key.startswith('tvly-'):
                 print("Warning: Tavily API key doesn't start with 'tvly-'")
             
+            # Add country to search query if specified
+            search_query = f"{company_name} company information"
+            if country:
+                search_query += f" {country}"
+            
             url = "https://api.tavily.com/search"
             payload = {
                 "api_key": tavily_api_key,
-                "query": f"{company_name} company information",
+                "query": search_query,
                 "search_depth": "basic",
                 "include_answer": True,
                 "include_raw_content": False,
@@ -290,15 +303,20 @@ class CompanyResearchService:
             print(f"Tavily search error: {str(e)}")
             return None
     
-    def _search_yacy(self, company_name: str) -> Optional[Dict[str, Any]]:
-        """Search using YaCy self-hosted search engine"""
+    def _search_yacy(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using YaCy self-hosted search engine with optional country focus"""
         yacy_url = os.getenv('YACY_URL')
         if not yacy_url:
             print("YACY_URL not set in environment")
             return None
         try:
+            # Add country to search query if specified
+            search_query = f"{company_name} company information"
+            if country:
+                search_query += f" {country}"
+            
             params = {
-                "query": f"{company_name} company information",
+                "query": search_query,
                 "maximumRecords": 5,
                 "resource": "global"
             }
@@ -325,15 +343,20 @@ class CompanyResearchService:
             print(f"YaCy search error: {str(e)}")
             return None
 
-    def _search_searxng(self, company_name: str) -> Optional[Dict[str, Any]]:
-        """Search using SearXNG self-hosted search engine"""
+    def _search_searxng(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using SearXNG self-hosted search engine with optional country focus"""
         searxng_url = os.getenv('SEARXNG_URL')
         if not searxng_url:
             print("SEARXNG_URL not set in environment")
             return None
         try:
+            # Add country to search query if specified
+            search_query = f"{company_name} company information"
+            if country:
+                search_query += f" {country}"
+            
             params = {
-                "q": f"{company_name} company information",
+                "q": search_query,
                 "format": "json",
                 "categories": "general",
                 "language": "en"
@@ -361,8 +384,8 @@ class CompanyResearchService:
             print(f"SearXNG search error: {str(e)}")
             return None
     
-    def _search_brave(self, company_name: str) -> Optional[Dict[str, Any]]:
-        """Search using Brave Search API"""
+    def _search_brave(self, company_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Search using Brave Search API with optional country focus"""
         try:
             # Brave Search API endpoint
             url = "https://api.search.brave.com/res/v1/web/search"
@@ -372,10 +395,16 @@ class CompanyResearchService:
                 'X-Subscription-Token': os.getenv('BRAVE_API_KEY', '')  # Optional API key
             }
             
+            # Add country to search query if specified
+            search_query = f"{company_name} company about us mission vision"
+            if country:
+                search_query += f" {country}"
+            
             params = {
-                'q': f"{company_name} company about us mission vision",
+                'q': search_query,
                 'count': 5,
-                'search_lang': 'en_US'
+                'search_lang': 'en',
+                'safesearch': 'moderate'
             }
             
             response = requests.get(url, headers=headers, params=params, timeout=10)
@@ -389,9 +418,11 @@ class CompanyResearchService:
                 
                 # Extract comprehensive company information
                 company_info = self._extract_comprehensive_company_info(results, company_name)
+                company_info['provider_used'] = 'brave'
+                company_info['searched_at'] = datetime.now().isoformat()
                 return company_info
             else:
-                print(f"Brave Search API error: {response.status_code}")
+                print(f"Brave Search API error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:

@@ -725,6 +725,32 @@
                     </select>
                     <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
                 </div>
+                <div class="form-group" id="singleResearchCountryGroup" style="display: none;">
+                    <label for="researchCountry">Research Country (Optional):</label>
+                    <select id="researchCountry">
+                        <option value="">Global (No country focus)</option>
+                        <option value="Australia">Australia</option>
+                        <option value="United States">United States</option>
+                        <option value="Canada">Canada</option>
+                        <option value="United Kingdom">United Kingdom</option>
+                        <option value="Germany">Germany</option>
+                        <option value="France">France</option>
+                        <option value="Netherlands">Netherlands</option>
+                        <option value="Sweden">Sweden</option>
+                        <option value="Norway">Norway</option>
+                        <option value="Denmark">Denmark</option>
+                        <option value="Finland">Finland</option>
+                        <option value="Switzerland">Switzerland</option>
+                        <option value="Singapore">Singapore</option>
+                        <option value="Japan">Japan</option>
+                        <option value="South Korea">South Korea</option>
+                        <option value="New Zealand">New Zealand</option>
+                        <option value="Ireland">Ireland</option>
+                        <option value="Belgium">Belgium</option>
+                        <option value="Austria">Austria</option>
+                    </select>
+                    <small style="color: #666;">Focus search on a specific country for more relevant results. Leave empty for global search.</small>
+                </div>
                 <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
                 <div id="coverLetterPreview"></div>
             </div>
@@ -776,6 +802,32 @@
                         <option value="duckduckgo">DuckDuckGo (Free)</option>
                     </select>
                     <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
+                </div>
+                <div class="form-group" id="batchResearchCountryGroup" style="display: none;">
+                    <label for="batchResearchCountry">Research Country (Optional):</label>
+                    <select id="batchResearchCountry">
+                        <option value="">Global (No country focus)</option>
+                        <option value="Australia">Australia</option>
+                        <option value="United States">United States</option>
+                        <option value="Canada">Canada</option>
+                        <option value="United Kingdom">United Kingdom</option>
+                        <option value="Germany">Germany</option>
+                        <option value="France">France</option>
+                        <option value="Netherlands">Netherlands</option>
+                        <option value="Sweden">Sweden</option>
+                        <option value="Norway">Norway</option>
+                        <option value="Denmark">Denmark</option>
+                        <option value="Finland">Finland</option>
+                        <option value="Switzerland">Switzerland</option>
+                        <option value="Singapore">Singapore</option>
+                        <option value="Japan">Japan</option>
+                        <option value="South Korea">South Korea</option>
+                        <option value="New Zealand">New Zealand</option>
+                        <option value="Ireland">Ireland</option>
+                        <option value="Belgium">Belgium</option>
+                        <option value="Austria">Austria</option>
+                    </select>
+                    <small style="color: #666;">Focus search on a specific country for more relevant results. Leave empty for global search.</small>
                 </div>
                 <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
                 <div id="batchStatus"></div>
@@ -1128,6 +1180,7 @@
             const tone = document.getElementById('tone').value;
             const includeCompanyResearch = document.getElementById('includeCompanyResearch').checked;
             const searchProvider = document.getElementById('searchProvider').value;
+            const researchCountry = document.getElementById('researchCountry').value;
 
             if (!jobTitle || !companyName || !jobDescription) {
                 showStatus('❌ Please fill in all required fields', 'error');
@@ -1148,7 +1201,8 @@
                         job_description: jobDescription,
                         tone: tone,
                         include_company_research: includeCompanyResearch,
-                        research_provider: searchProvider || null
+                        research_provider: searchProvider || null,
+                        research_country: researchCountry || null
                     })
                 });
 
@@ -1319,29 +1373,37 @@
             // Add event listener for batch company research checkbox
             document.getElementById('batchIncludeCompanyResearch').addEventListener('change', function() {
                 const providerGroup = document.getElementById('batchResearchProviderGroup');
+                const countryGroup = document.getElementById('batchResearchCountryGroup');
                 if (this.checked) {
                     providerGroup.style.display = 'block';
+                    countryGroup.style.display = 'block';
                 } else {
                     providerGroup.style.display = 'none';
+                    countryGroup.style.display = 'none';
                 }
             });
             
             // Add event listener for single company research checkbox
             document.getElementById('includeCompanyResearch').addEventListener('change', function() {
                 const providerGroup = document.getElementById('singleResearchProviderGroup');
+                const countryGroup = document.getElementById('singleResearchCountryGroup');
                 if (this.checked) {
                     providerGroup.style.display = 'block';
+                    countryGroup.style.display = 'block';
                 } else {
                     providerGroup.style.display = 'none';
+                    countryGroup.style.display = 'none';
                 }
             });
             
             // Show provider selection if company research is already checked
             if (document.getElementById('includeCompanyResearch').checked) {
                 document.getElementById('singleResearchProviderGroup').style.display = 'block';
+                document.getElementById('singleResearchCountryGroup').style.display = 'block';
             }
             if (document.getElementById('batchIncludeCompanyResearch').checked) {
                 document.getElementById('batchResearchProviderGroup').style.display = 'block';
+                document.getElementById('batchResearchCountryGroup').style.display = 'block';
             }
         });
 
@@ -2232,6 +2294,7 @@
             const delay = parseInt(document.getElementById('batchDelay').value) || 3;
             const includeCompanyResearch = document.getElementById('batchIncludeCompanyResearch').checked;
             const researchProvider = document.getElementById('batchResearchProvider').value;
+            const researchCountry = document.getElementById('batchResearchCountry').value;
             
             if (!websitesRaw) {
                 showStatus('❌ Please enter at least one job ad URL', 'error', 'batchStatus');
@@ -2251,7 +2314,8 @@
                         websites: websites,
                         delay_seconds: delay,
                         include_company_research: includeCompanyResearch,
-                        research_provider: researchProvider || null
+                        research_provider: researchProvider || null,
+                        research_country: researchCountry || null
                     })
                 });
                 const result = await response.json();

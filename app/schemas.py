@@ -51,6 +51,7 @@ class CoverLetterRequest(BaseModel):
     tone: Optional[str] = "professional"  # professional, enthusiastic, formal, casual
     include_company_research: Optional[bool] = True  # Whether to include company research in the cover letter
     research_provider: Optional[str] = None  # Provider for company research (tavily, google, brave, etc.)
+    research_country: Optional[str] = None  # Country to focus search on (e.g., "Australia", "United States", etc.)
 
 class CoverLetterResponse(BaseModel):
     id: int
