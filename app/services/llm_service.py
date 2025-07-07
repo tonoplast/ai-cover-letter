@@ -229,17 +229,70 @@ class LLMService:
             print(f"Google Gemini generation error: {e}")
         return None
 
-    def list_models(self) -> Optional[List[str]]:
-        """List available models for the current provider"""
+    def get_default_vision_model(self) -> Optional[str]:
+        """Return the default vision model for the current provider, if available."""
         if self.current_provider == LLMProvider.OLLAMA:
-            return self._list_ollama_models()
+            models = self._list_ollama_models() or []
+            for vision_model in ["llava:latest", "bakllava:latest"]:
+                if vision_model in models:
+                    return vision_model
+            return None
         elif self.current_provider == LLMProvider.OPENAI:
-            return self._list_openai_models()
+            models = self._list_openai_models() or []
+            for vision_model in ["gpt-4o", "gpt-4-vision-preview"]:
+                if vision_model in models:
+                    return vision_model
+            return None
         elif self.current_provider == LLMProvider.ANTHROPIC:
-            return self._list_anthropic_models()
+            models = self._list_anthropic_models() or []
+            for vision_model in ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]:
+                if vision_model in models:
+                    return vision_model
+            return None
         elif self.current_provider == LLMProvider.GOOGLE:
-            return self._list_google_models()
+            models = self._list_google_models() or []
+            for vision_model in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+                if vision_model in models:
+                    return vision_model
+            return None
         return None
+
+    def list_models(self) -> Optional[List[str]]:
+        """List all available models for the current provider (text and vision)."""
+        if self.current_provider == LLMProvider.OLLAMA:
+            # Only return models that are actually installed in Ollama
+            models = self._list_ollama_models() or []
+            return models
+        elif self.current_provider == LLMProvider.OPENAI:
+            models = self._list_openai_models() or []
+            return models
+        elif self.current_provider == LLMProvider.ANTHROPIC:
+            models = self._list_anthropic_models() or []
+            return models
+        elif self.current_provider == LLMProvider.GOOGLE:
+            models = self._list_google_models() or []
+            return models
+        return None
+
+    def has_vision_models(self) -> bool:
+        """Check if any vision models are actually available for the current provider."""
+        if self.current_provider == LLMProvider.OLLAMA:
+            models = self._list_ollama_models() or []
+            vision_models = ["llava", "bakllava"]
+            return any(any(vm in model for vm in vision_models) for model in models)
+        elif self.current_provider == LLMProvider.OPENAI:
+            models = self._list_openai_models() or []
+            vision_models = ["gpt-4o", "gpt-4-vision"]
+            return any(any(vm in model for vm in vision_models) for model in models)
+        elif self.current_provider == LLMProvider.ANTHROPIC:
+            models = self._list_anthropic_models() or []
+            vision_models = ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"]
+            return any(any(vm in model for vm in vision_models) for model in models)
+        elif self.current_provider == LLMProvider.GOOGLE:
+            models = self._list_google_models() or []
+            vision_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+            return any(any(vm in model for vm in vision_models) for model in models)
+        return False
 
     def _list_ollama_models(self) -> Optional[List[str]]:
         """List available Ollama models"""

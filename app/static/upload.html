@@ -677,7 +677,7 @@
             <div class="instructions">
                 <h3>📋 Upload Instructions</h3>
                 <ul>
-                    <li><strong>Upload Order Matters:</strong> Upload your <strong>latest CV first</strong> for optimal RAG performance</li>
+                    <li><strong>Document Recency:</strong> The most recently uploaded document is considered most relevant for AI context extraction. Upload order does not affect relevance.</li>
                     <li><strong>Supported Formats:</strong> PDF, DOCX, TXT, CSV, XLSX</li>
                     <li><strong>Document Types:</strong> CV, Cover Letter, LinkedIn, or Other</li>
                     <li><strong>Multiple Files:</strong> Drag & drop or select multiple files at once</li>
@@ -689,10 +689,72 @@
                 <p>or</p>
                 <input type="file" id="fileInput" multiple style="display: none;">
                 <button class="btn" onclick="document.getElementById('fileInput').click()">Select Files</button>
+                <button class="btn" id="clearSelectionBtn" onclick="clearFileSelection()">Clear Selection</button>
+            </div>
+
+            <!-- Bulk type set buttons -->
+            <div id="bulkTypeButtons" style="margin: 10px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-success" type="button" onclick="setAllFileTypes('cv')">Set All to CV/Resume</button>
+                <button class="btn btn-success" type="button" onclick="setAllFileTypes('cover_letter')">Set All to Cover Letter</button>
+                <button class="btn btn-success" type="button" onclick="setAllFileTypes('linkedin')">Set All to LinkedIn</button>
+                <button class="btn btn-success" type="button" onclick="setAllFileTypes('other')">Set All to Other</button>
             </div>
 
             <div id="fileList" class="file-list"></div>
+            <div id="uploadResults" class="file-list"></div>
 
+            <div class="section">
+                <h3>🔧 Document Processing Options</h3>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="useLLMExtraction" style="width: auto; margin: 0;">
+                        Use AI for Enhanced Document Parsing
+                    </label>
+                    <small style="color: #666;">When enabled, AI will extract structured information (experiences, education, skills) from your documents. When disabled, uses basic text extraction only.</small>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="extractImages" style="width: auto; margin: 0;">
+                        Extract Text from Images in PDFs
+                    </label>
+                    <small style="color: #666;">When enabled, the system will extract text from images in PDFs using OCR. This can capture tools, software, and other content that appears as images.</small>
+                </div>
+                <div class="form-group" id="uploadLLMProviderGroup" style="display: none;">
+                    <label for="uploadLlmProvider">AI Model Provider:</label>
+                    <select id="uploadLlmProvider" onchange="loadLLMModels(this.value, 'uploadLlmModel', 'uploadLLMModelGroup')">
+                        <option value="">Auto (Use Default: Ollama)</option>
+                        <option value="ollama">Ollama (Local)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="google">Google Gemini</option>
+                    </select>
+                    <small style="color: #666;">Select which AI provider to use for document parsing. <b>Auto</b> uses the default configured provider. <b>✅</b> indicates the current default.</small>
+                </div>
+                <div class="form-group" id="uploadLLMModelGroup" style="display: none;">
+                    <label for="uploadLlmModel">AI Model:</label>
+                    <select id="uploadLlmModel"></select>
+                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="enableVisionLlm" name="enableVisionLlm" style="width: auto; margin: 0;" onchange="toggleVisionLlmOptions()">
+                        Enable Vision LLM for Logo Recognition
+                    </label>
+                    <small style="color: #666;">When enabled, the system will use a vision-capable LLM to recognize logos and tools in images (PDFs, DOCX, etc).</small>
+                </div>
+                <div class="form-group" id="visionLlmProviderGroup" style="display:none;">
+                    <label for="visionLlmProvider">Vision LLM Provider:</label>
+                    <select id="visionLlmProvider" onchange="loadVisionLLMModels(this.value)"></select>
+                    <small style="color: #666;">Select which AI provider to use for vision-based logo recognition. <b>Auto</b> uses the default configured provider. <b>✅</b> indicates the current default.</small>
+                </div>
+                <div class="form-group" id="visionLlmModelGroup" style="display:none;">
+                    <label for="visionLlmModel">Vision LLM Model:</label>
+                    <select id="visionLlmModel"></select>
+                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
+                </div>
+            </div>
+
+            <input type="hidden" id="logoRecognition" name="logoRecognition" value="none">
             <div style="text-align: center;">
                 <button class="btn" id="uploadBtn" onclick="uploadFiles()" disabled>Upload All Files</button>
                 <button class="btn btn-danger" onclick="clearDatabase()">🗑️ Clear Database</button>
@@ -789,10 +851,8 @@
                 </div>
                 <div class="form-group" id="llmModelGroup" style="display: none;">
                     <label for="llmModel">AI Model:</label>
-                    <select id="llmModel">
-                        <option value="">Auto (Use Default)</option>
-                    </select>
-                    <small style="color: #666;">Select a specific model for the chosen provider. Auto uses the default model.</small>
+                    <select id="llmModel"></select>
+                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
                 </div>
                 <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
                 <div id="coverLetterPreview"></div>
@@ -886,10 +946,8 @@
                 </div>
                 <div class="form-group" id="batchLlmModelGroup" style="display: none;">
                     <label for="batchLlmModel">AI Model (Batch):</label>
-                    <select id="batchLlmModel">
-                        <option value="">Auto (Use Default)</option>
-                    </select>
-                    <small style="color: #666;">Select a specific model for the chosen provider. Auto uses the default model.</small>
+                    <select id="batchLlmModel"></select>
+                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
                 </div>
                 <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
                 <div id="batchStatus"></div>
@@ -962,9 +1020,8 @@
                                 </div>
                                 <div class="form-group" id="chatLlmModelGroup" style="display: none; margin-bottom: 10px;">
                                     <label for="chatLlmModel" style="font-size: 12px; color: #666;">AI Model:</label>
-                                    <select id="chatLlmModel" style="width: 100%; font-size: 12px;">
-                                        <option value="">Auto (Use Default)</option>
-                                    </select>
+                                    <select id="chatLlmModel"></select>
+                                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
                                 </div>
                             </div>
                             <div class="chat-input">
@@ -991,7 +1048,9 @@
                 
                 <div class="select-all-container">
                     <label><input type="checkbox" id="selectAllDocuments" onchange="toggleSelectAll('documents')"> Select All Documents</label>
+                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCV" onchange="toggleSelectAll('cv')"> Select All CV/Resume</label>
                     <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCoverLetters" onchange="toggleSelectAll('cover_letters')"> Select All Cover Letters</label>
+                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllOtherDocuments" onchange="toggleSelectAll('other_documents')"> Select All Other Documents</label>
                     <label style="margin-left: 20px;"><input type="checkbox" id="selectAllExperiences" onchange="toggleSelectAll('experiences')"> Select All Experiences</label>
                     <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCompanyResearch" onchange="toggleSelectAll('company_research')"> Select All Company Research</label>
                 </div>
@@ -1076,10 +1135,9 @@
         });
 
         function addFiles(files) {
+            // Allow duplicate file names by always adding new files
             files.forEach(file => {
-                if (!selectedFiles.find(f => f.name === file.name)) {
-                    selectedFiles.push(file);
-                }
+                selectedFiles.push(file);
             });
             updateFileList();
         }
@@ -1102,17 +1160,39 @@
             fileList.innerHTML = selectedFiles.map((file, index) => `
                 <div class="file-item">
                     <span>📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
-                    <select id="type-${index}">
+                    <select id="type-${index}" onchange="handleTypeChange(${index})">
                         <option value="cv">CV/Resume</option>
                         <option value="cover_letter">Cover Letter</option>
                         <option value="linkedin">LinkedIn</option>
                         <option value="other">Other</option>
                     </select>
+                    <input type="text" id="linkedin-url-${index}" placeholder="LinkedIn Profile URL" style="display:none; margin-left:10px; width:220px;" />
                     <button class="remove-btn" onclick="removeFile(${index})">Remove</button>
                 </div>
             `).join('');
 
+            // Show LinkedIn URL input if needed
+            selectedFiles.forEach((file, index) => {
+                const typeSelect = document.getElementById(`type-${index}`);
+                const urlInput = document.getElementById(`linkedin-url-${index}`);
+                if (typeSelect.value === 'linkedin') {
+                    urlInput.style.display = 'inline-block';
+                } else {
+                    urlInput.style.display = 'none';
+                }
+            });
+
             uploadBtn.disabled = false;
+        }
+
+        function handleTypeChange(index) {
+            const typeSelect = document.getElementById(`type-${index}`);
+            const urlInput = document.getElementById(`linkedin-url-${index}`);
+            if (typeSelect.value === 'linkedin') {
+                urlInput.style.display = 'inline-block';
+            } else {
+                urlInput.style.display = 'none';
+            }
         }
 
         async function uploadFiles() {
@@ -1120,16 +1200,54 @@
 
             const formData = new FormData();
             const documentTypes = [];
+            const linkedinUrls = [];
 
             selectedFiles.forEach((file, index) => {
                 formData.append('files', file);
                 const typeSelect = document.getElementById(`type-${index}`);
                 documentTypes.push(typeSelect.value);
+                const urlInput = document.getElementById(`linkedin-url-${index}`);
+                linkedinUrls.push(urlInput && typeSelect.value === 'linkedin' ? urlInput.value.trim() : '');
             });
 
             documentTypes.forEach(type => {
                 formData.append('document_types', type);
             });
+            linkedinUrls.forEach(url => {
+                formData.append('linkedin_urls', url);
+            });
+
+            // Add LLM parameters if AI extraction is enabled
+            const useLLMExtraction = document.getElementById('useLLMExtraction').checked;
+            if (useLLMExtraction) {
+                const llmProvider = document.getElementById('uploadLlmProvider').value;
+                const llmModel = document.getElementById('uploadLlmModel').value;
+                
+                if (llmProvider) {
+                    formData.append('llm_provider', llmProvider);
+                }
+                if (llmModel) {
+                    formData.append('llm_model', llmModel);
+                }
+                formData.append('use_llm_extraction', 'true');
+            } else {
+                formData.append('use_llm_extraction', 'false');
+            }
+
+            // Add image extraction parameter
+            const extractImages = document.getElementById('extractImages').checked;
+            formData.append('extract_images', extractImages ? 'true' : 'false');
+
+            // Add logo recognition parameter
+            const logoRecognition = document.getElementById('logoRecognition').value;
+            formData.append('logo_recognition', logoRecognition);
+            // Add Vision LLM provider/model if vision_llm selected
+            if (logoRecognition === 'vision_llm') {
+                const visionLlmProvider = document.getElementById('visionLlmProvider').value;
+                const visionLlmModel = document.getElementById('visionLlmModel').value;
+                formData.append('vision_llm_provider', visionLlmProvider);
+                formData.append('vision_llm_model', visionLlmModel);
+            }
 
             showStatus('Uploading files...', 'info');
 
@@ -1139,13 +1257,31 @@
                     body: formData
                 });
 
-                const result = await response.json();
+                let result = null;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    showStatus('❌ Upload failed: Server error (not JSON)', 'error');
+                    return;
+                }
 
                 if (response.ok) {
                     showStatus(`✅ ${result.message}`, 'success');
                     selectedFiles = [];
                     updateFileList();
                     checkDatabase();
+                    clearFileSelection(); // Automatically clear selection after successful upload
+                    // Show upload results with 'Show Full Data' button
+                    if (result.uploaded_documents) {
+                        const uploadResults = document.getElementById('uploadResults');
+                        uploadResults.innerHTML = result.uploaded_documents.map(doc => `
+                            <div class="file-item">
+                                <span>📄 ${doc.filename} (${doc.document_type})</span>
+                                <button class="btn" onclick="showFullData(${doc.id})">Show Full Data</button>
+                            </div>
+                            <div id="fullData-${doc.id}" style="display:none; background:#f8f9fa; border:1px solid #ddd; padding:10px; margin:5px 0; font-size:13px; white-space:pre-wrap;"></div>
+                        `).join('');
+                    }
                 } else {
                     showStatus(`❌ Error: ${result.detail}`, 'error');
                 }
@@ -1257,27 +1393,22 @@
             try {
                 const response = await fetch('/llm-providers');
                 const data = await response.json();
-                
-                // Update all LLM provider dropdowns
-                const providerDropdowns = ['llmProvider', 'batchLlmProvider', 'chatLlmProvider'];
-                
-                // Update the "Auto" option to show the default provider
+                const providerDropdowns = ['llmProvider', 'batchLlmProvider', 'chatLlmProvider', 'uploadLlmProvider', 'visionLlmProvider'];
                 const defaultProvider = data.current_provider || 'ollama';
                 const autoOptionText = `Auto (Use Default: ${defaultProvider.charAt(0).toUpperCase() + defaultProvider.slice(1)})`;
-                
                 providerDropdowns.forEach(dropdownId => {
                     const llmProviderSelect = document.getElementById(dropdownId);
                     if (llmProviderSelect) {
                         llmProviderSelect.innerHTML = `<option value="">${autoOptionText}</option>`;
-                        
                         data.providers.forEach(provider => {
+                            const isDefault = provider.name === data.current_provider;
+                            const tick = isDefault ? '✅' : '';
                             const option = document.createElement('option');
                             option.value = provider.name;
-                            option.textContent = `${provider.display_name} ${provider.available ? '✅' : '❌'}`;
+                            option.textContent = `${provider.display_name} ${tick}`;
                             option.disabled = !provider.available;
                             llmProviderSelect.appendChild(option);
                         });
-                        
                         // Set current provider if available
                         const currentProvider = data.providers.find(p => p.name === data.current_provider);
                         if (currentProvider && currentProvider.available) {
@@ -1285,49 +1416,53 @@
                         }
                     }
                 });
-                
             } catch (error) {
                 console.log('Could not load LLM providers info');
             }
         }
 
-        async function loadLLMModels(provider) {
-            console.log(`Loading models for provider: ${provider}`);
-            const llmModelGroup = document.getElementById('llmModelGroup');
-            const llmModelSelect = document.getElementById('llmModel');
-            
+        // Add a helper to show loading in a select
+        function showLoadingOption(selectElement, text = 'Loading...') {
+            selectElement.innerHTML = `<option value="">${text}</option>`;
+        }
+
+        // Patch all model loading functions to show 'Loading...' immediately
+        async function loadLLMModels(provider, modelDropdownId = 'llmModel', modelGroupId = 'llmModelGroup') {
+            const llmModelGroup = document.getElementById(modelGroupId);
+            const llmModelSelect = document.getElementById(modelDropdownId);
+            showLoadingOption(llmModelSelect);
             if (!provider) {
-                console.log('No provider selected, showing default model');
-                // Show default model when "Auto" is selected
                 try {
                     const response = await fetch('/llm-providers');
                     const data = await response.json();
                     const currentProvider = data.current_provider || 'ollama';
-                    
-                    // Get the default model for the current provider
                     const modelResponse = await fetch(`/llm-models/${currentProvider}`);
                     const modelData = await modelResponse.json();
                     const defaultModel = modelData.current_model || 'llama3.2:latest';
-                    
                     llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
+                    if (modelData.models && modelData.models.length > 0) {
+                        modelData.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === modelData.current_model) {
+                                option.textContent += ' (Default)';
+                            }
+                            llmModelSelect.appendChild(option);
+                        });
+                    }
                     llmModelGroup.style.display = 'block';
-                    console.log(`Showing default model: ${defaultModel}`);
                 } catch (error) {
-                    console.error('Error loading default model:', error);
                     llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
                     llmModelGroup.style.display = 'block';
                 }
                 return;
             }
-            
             try {
-                console.log(`Fetching models from /llm-models/${provider}`);
                 const response = await fetch(`/llm-models/${provider}`);
                 const data = await response.json();
-                console.log('Response data:', data);
-                
-                llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
-                
+                const defaultModel = data.current_model || '';
+                llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
                 if (data.models && data.models.length > 0) {
                     data.models.forEach(model => {
                         const option = document.createElement('option');
@@ -1338,55 +1473,51 @@
                         }
                         llmModelSelect.appendChild(option);
                     });
-                    
                     llmModelGroup.style.display = 'block';
-                    console.log(`Loaded ${data.models.length} models, showing model group`);
                 } else {
-                    console.log('No models returned, hiding model group');
                     llmModelGroup.style.display = 'none';
                 }
-                
             } catch (error) {
-                console.error(`Could not load models for provider ${provider}:`, error);
                 llmModelGroup.style.display = 'none';
             }
         }
 
         async function loadBatchLLMModels(provider) {
-            console.log(`Loading batch models for provider: ${provider}`);
             const batchLlmModelGroup = document.getElementById('batchLlmModelGroup');
             const llmModelSelect = document.getElementById('batchLlmModel');
-            
+            showLoadingOption(llmModelSelect);
             if (!provider) {
-                console.log('No provider selected, showing default model');
-                // Show default model when "Auto" is selected
                 try {
                     const response = await fetch('/llm-providers');
                     const data = await response.json();
                     const currentProvider = data.current_provider || 'ollama';
-                    
-                    // Get the default model for the current provider
                     const modelResponse = await fetch(`/llm-models/${currentProvider}`);
                     const modelData = await modelResponse.json();
                     const defaultModel = modelData.current_model || 'llama3.2:latest';
-                    
                     llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
+                    if (modelData.models && modelData.models.length > 0) {
+                        modelData.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === modelData.current_model) {
+                                option.textContent += ' (Default)';
+                            }
+                            llmModelSelect.appendChild(option);
+                        });
+                    }
                     batchLlmModelGroup.style.display = 'block';
-                    console.log(`Showing default batch model: ${defaultModel}`);
                 } catch (error) {
-                    console.error('Error loading default batch model:', error);
                     llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
                     batchLlmModelGroup.style.display = 'block';
                 }
                 return;
             }
-            
             try {
                 const response = await fetch(`/llm-models/${provider}`);
                 const data = await response.json();
-                
-                llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
-                
+                const defaultModel = data.current_model || '';
+                llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
                 if (data.models && data.models.length > 0) {
                     data.models.forEach(model => {
                         const option = document.createElement('option');
@@ -1397,34 +1528,53 @@
                         }
                         llmModelSelect.appendChild(option);
                     });
-                    
                     batchLlmModelGroup.style.display = 'block';
-                    console.log(`Loaded ${data.models.length} batch models`);
                 } else {
-                    console.log('No batch models returned, hiding model group');
                     batchLlmModelGroup.style.display = 'none';
                 }
-                
             } catch (error) {
-                console.error(`Could not load batch models for provider ${provider}:`, error);
                 batchLlmModelGroup.style.display = 'none';
             }
         }
 
         async function loadChatLLMModels(provider) {
             return new Promise(async (resolve) => {
-                console.log(`Loading chat models for provider: ${provider}`);
                 const chatLlmModelGroup = document.getElementById('chatLlmModelGroup');
                 const llmModelSelect = document.getElementById('chatLlmModel');
+                showLoadingOption(llmModelSelect);
                 if (!provider) {
-                    // ... existing code ...
+                    try {
+                        const response = await fetch('/llm-providers');
+                        const data = await response.json();
+                        const currentProvider = data.current_provider || 'ollama';
+                        const modelResponse = await fetch(`/llm-models/${currentProvider}`);
+                        const modelData = await modelResponse.json();
+                        const defaultModel = modelData.current_model || 'llama3.2:latest';
+                        llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
+                        if (modelData.models && modelData.models.length > 0) {
+                            modelData.models.forEach(model => {
+                                const option = document.createElement('option');
+                                option.value = model;
+                                option.textContent = model;
+                                if (model === modelData.current_model) {
+                                    option.textContent += ' (Default)';
+                                }
+                                llmModelSelect.appendChild(option);
+                            });
+                        }
+                        chatLlmModelGroup.style.display = 'block';
+                    } catch (error) {
+                        llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
+                        chatLlmModelGroup.style.display = 'block';
+                    }
                     resolve();
                     return;
                 }
                 try {
                     const response = await fetch(`/llm-models/${provider}`);
                     const data = await response.json();
-                    llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
+                    const defaultModel = data.current_model || '';
+                    llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
                     if (data.models && data.models.length > 0) {
                         data.models.forEach(model => {
                             const option = document.createElement('option');
@@ -1435,19 +1585,137 @@
                             }
                             llmModelSelect.appendChild(option);
                         });
-                        chatLlmModelGroup.style.display = 'block';
-                        console.log(`Loaded ${data.models.length} chat models`);
-                    } else {
-                        console.log('No chat models returned, hiding model group');
-                        chatLlmModelGroup.style.display = 'none';
                     }
+                    chatLlmModelGroup.style.display = 'block';
                     resolve();
                 } catch (error) {
-                    console.error(`Could not load chat models for provider ${provider}:`, error);
                     chatLlmModelGroup.style.display = 'none';
                     resolve();
                 }
             });
+        }
+
+        async function loadUploadLLMModels(provider) {
+            const uploadLlmModelGroup = document.getElementById('uploadLLMModelGroup');
+            const llmModelSelect = document.getElementById('uploadLlmModel');
+            showLoadingOption(llmModelSelect);
+            const useLLMExtractionChecked = document.getElementById('useLLMExtraction').checked;
+            if (!provider) {
+                try {
+                    const response = await fetch('/llm-providers');
+                    const data = await response.json();
+                    const currentProvider = data.current_provider || 'ollama';
+                    const modelResponse = await fetch(`/llm-models/${currentProvider}`);
+                    const modelData = await modelResponse.json();
+                    const defaultModel = modelData.current_model || 'llama3.2:latest';
+                    llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
+                    if (modelData.models && modelData.models.length > 0) {
+                        modelData.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === modelData.current_model) {
+                                option.textContent += ' (Default)';
+                            }
+                            llmModelSelect.appendChild(option);
+                        });
+                    }
+                    // Only show if useLLMExtraction is checked
+                    uploadLlmModelGroup.style.display = useLLMExtractionChecked ? 'block' : 'none';
+                } catch (error) {
+                    llmModelSelect.innerHTML = '<option value="">Auto (Use Default)</option>';
+                    uploadLlmModelGroup.style.display = useLLMExtractionChecked ? 'block' : 'none';
+                }
+                return;
+            }
+            try {
+                const response = await fetch(`/llm-models/${provider}`);
+                const data = await response.json();
+                const defaultModel = data.current_model || '';
+                llmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultModel})</option>`;
+                if (data.models && data.models.length > 0) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if (model === data.current_model) {
+                            option.textContent += ' (Default)';
+                        }
+                        llmModelSelect.appendChild(option);
+                    });
+                    uploadLlmModelGroup.style.display = useLLMExtractionChecked ? 'block' : 'none';
+                } else {
+                    uploadLlmModelGroup.style.display = 'none';
+                }
+            } catch (error) {
+                uploadLlmModelGroup.style.display = 'none';
+            }
+        }
+
+        async function loadVisionLLMModels(provider) {
+            const visionLlmModelGroup = document.getElementById('visionLlmModelGroup');
+            const visionLlmModelSelect = document.getElementById('visionLlmModel');
+            showLoadingOption(visionLlmModelSelect);
+            if (!provider) {
+                try {
+                    const response = await fetch('/llm-providers');
+                    const data = await response.json();
+                    const currentProvider = data.current_provider || 'ollama';
+                    const modelResponse = await fetch(`/llm-models/${currentProvider}`);
+                    const modelData = await modelResponse.json();
+                    const visionResponse = await fetch(`/vision-models-available/${currentProvider}`);
+                    const visionData = await visionResponse.json();
+                    const defaultVisionModel = modelData.default_vision_model || modelData.current_model || 'llava:latest';
+                    if (!visionData.has_vision_models) {
+                        visionLlmModelSelect.innerHTML = `<option value="">Auto (No vision model available - Default: ${defaultVisionModel})</option>`;
+                    } else {
+                        visionLlmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultVisionModel})</option>`;
+                    }
+                    if (modelData.models && modelData.models.length > 0) {
+                        modelData.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === defaultVisionModel) {
+                                option.textContent += ' (Default)';
+                            }
+                            visionLlmModelSelect.appendChild(option);
+                        });
+                    }
+                    visionLlmModelGroup.style.display = 'block';
+                } catch (error) {
+                    visionLlmModelSelect.innerHTML = '<option value="">Auto (No vision model available - Default: llava:latest)</option>';
+                    visionLlmModelGroup.style.display = 'block';
+                }
+                return;
+            }
+            try {
+                const response = await fetch(`/llm-models/${provider}`);
+                const data = await response.json();
+                const visionResponse = await fetch(`/vision-models-available/${provider}`);
+                const visionData = await visionResponse.json();
+                const defaultVisionModel = data.default_vision_model || data.current_model || 'llava:latest';
+                if (!visionData.has_vision_models) {
+                    visionLlmModelSelect.innerHTML = `<option value="">Auto (No vision model available - Default: ${defaultVisionModel})</option>`;
+                } else {
+                    visionLlmModelSelect.innerHTML = `<option value="">Auto (Use Default: ${defaultVisionModel})</option>`;
+                }
+                if (data.models && data.models.length > 0) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if (model === defaultVisionModel) {
+                            option.textContent += ' (Default)';
+                        }
+                        visionLlmModelSelect.appendChild(option);
+                    });
+                }
+                visionLlmModelGroup.style.display = 'block';
+            } catch (error) {
+                visionLlmModelSelect.innerHTML = '<option value="">Auto (No vision model available - Default: llava:latest)</option>';
+                visionLlmModelGroup.style.display = 'block';
+            }
         }
 
         async function generateCoverLetter() {
@@ -1538,11 +1806,17 @@
                 databaseData = data;
 
                 const databaseStatus = document.getElementById('databaseStatus');
+                // Count CV/Resume and Cover Letters separately
+                const cvDocs = data.documents.filter(doc => doc.document_type && doc.document_type.toLowerCase().includes('cv'));
+                const coverLetterDocs = data.documents.filter(doc => doc.document_type && doc.document_type.toLowerCase().includes('cover'));
+                const otherDocs = data.documents.filter(doc => !doc.document_type || (!doc.document_type.toLowerCase().includes('cv') && !doc.document_type.toLowerCase().includes('cover')));
+
                 databaseStatus.innerHTML = `
                     <div class="status info">
                         <h4>📊 Database Summary:</h4>
-                        <p>📄 Documents: ${data.documents.length}</p>
-                        <p>📝 Cover Letters: ${data.cover_letters.length}</p>
+                        <p>📄 CV/Resume: ${cvDocs.length}</p>
+                        <p>📝 Cover Letters: ${data.cover_letters.length + coverLetterDocs.length}</p>
+                        <p>📄 Other Documents: ${otherDocs.length}</p>
                         <p>💼 Experiences: ${data.experiences.length}</p>
                         <p>🏢 Company Research: ${data.company_research.length}</p>
                     </div>
@@ -1552,14 +1826,14 @@
                 const databaseDetails = document.getElementById('databaseDetails');
                 let detailsHtml = '<h4>📋 Detailed Contents:</h4>';
 
-                if (data.documents.length > 0) {
-                    detailsHtml += '<h5>📄 Documents:</h5>';
-                    data.documents.forEach(doc => {
+                if (cvDocs.length > 0) {
+                    detailsHtml += '<h5>📄 CV/Resume:</h5>';
+                    cvDocs.forEach(doc => {
                         detailsHtml += `
                             <div class="database-item">
-                                <input type="checkbox" class="doc-checkbox" value="${doc.id}" data-type="document">
+                                <input type="checkbox" class="cv-checkbox" value="${doc.id}" data-type="cv">
                                 <div class="database-item-content">
-                                    <strong>${doc.filename}</strong> (${doc.document_type}) - ${doc.uploaded_at}
+                                    <strong>${doc.filename}</strong> (CV/Resume) - ${doc.uploaded_at}
                                 </div>
                                 <div class="database-item-actions">
                                     <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
@@ -1570,18 +1844,52 @@
                     });
                 }
 
-                if (data.cover_letters.length > 0) {
+                if (data.cover_letters.length > 0 || coverLetterDocs.length > 0) {
                     detailsHtml += '<h5>📝 Cover Letters:</h5>';
+                    // Render cover letters from cover_letters
                     data.cover_letters.forEach(cl => {
                         detailsHtml += `
                             <div class="database-item">
-                                <input type="checkbox" class="cl-checkbox" value="${cl.id}" data-type="cover_letter">
+                                <input type="checkbox" class="cl-checkbox" value="${cl.id}" data-type="cover_letters">
                                 <div class="database-item-content">
-                                    <strong>${cl.job_title}</strong> at ${cl.company_name} - ${cl.generated_at}
+                                    <strong>${cl.job_title || cl.filename || 'Cover Letter'}</strong> at ${cl.company_name || ''} - ${cl.generated_at || cl.uploaded_at || ''}
                                 </div>
                                 <div class="database-item-actions">
                                     <button class="view-item-btn" onclick="viewItem('cover_letter', ${cl.id})">👁️ View</button>
                                     <button class="delete-item-btn" onclick="deleteItem('cover_letter', ${cl.id})">🗑️ Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    // Render cover letters from documents with type cover
+                    coverLetterDocs.forEach(doc => {
+                        detailsHtml += `
+                            <div class="database-item">
+                                <input type="checkbox" class="cl-checkbox" value="${doc.id}" data-type="cover_letters">
+                                <div class="database-item-content">
+                                    <strong>${doc.filename}</strong> (Cover Letter) - ${doc.uploaded_at}
+                                </div>
+                                <div class="database-item-actions">
+                                    <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
+                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">🗑️ Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (otherDocs.length > 0) {
+                    detailsHtml += '<h5>📄 Other Documents:</h5>';
+                    otherDocs.forEach(doc => {
+                        detailsHtml += `
+                            <div class="database-item">
+                                <input type="checkbox" class="otherdoc-checkbox" value="${doc.id}" data-type="other_documents">
+                                <div class="database-item-content">
+                                    <strong>${doc.filename}</strong> (${doc.document_type || 'Other'}) - ${doc.uploaded_at}
+                                </div>
+                                <div class="database-item-actions">
+                                    <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
+                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">🗑️ Delete</button>
                                 </div>
                             </div>
                         `;
@@ -1593,7 +1901,7 @@
                     data.experiences.forEach(exp => {
                         detailsHtml += `
                             <div class="database-item">
-                                <input type="checkbox" class="exp-checkbox" value="${exp.id}" data-type="experience">
+                                <input type="checkbox" class="exp-checkbox" value="${exp.id}" data-type="experiences">
                                 <div class="database-item-content">
                                     <strong>${exp.title}</strong> at ${exp.company} - ${exp.start_date}
                                 </div>
@@ -1633,14 +1941,13 @@
         }
 
         function showStatus(message, type = 'info', targetId = 'status') {
-            const statusDiv = document.getElementById(targetId);
-            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
-            
-            if (type === 'success') {
-                setTimeout(() => {
-                    statusDiv.innerHTML = '';
-                }, 5000);
-            }
+            const statusDiv = document.getElementById(targetId || 'status');
+            if (!statusDiv) return;
+            let color, icon;
+            if (type === 'success') { color = '#d4edda'; icon = '✅'; }
+            else if (type === 'error') { color = '#f8d7da'; icon = '❌'; }
+            else { color = '#d1ecf1'; icon = 'ℹ️'; }
+            statusDiv.innerHTML = `<div class="status ${type}" style="background:${color};padding:10px;border-radius:5px;margin:10px 0;">${icon} ${message}</div>`;
         }
 
         // Check database on page load
@@ -1722,6 +2029,29 @@
                     }
                 });
                 this.setAttribute('data-prev-provider', provider);
+            });
+
+            // Add event listener for upload LLM provider selection
+            document.getElementById('uploadLlmProvider').addEventListener('change', function() {
+                console.log('Upload LLM provider changed to:', this.value);
+                loadUploadLLMModels(this.value);
+            });
+
+            // Add event listener for LLM extraction checkbox
+            document.getElementById('useLLMExtraction').addEventListener('change', function() {
+                const useLLM = this.checked;
+                const providerGroup = document.getElementById('uploadLLMProviderGroup');
+                const modelGroup = document.getElementById('uploadLLMModelGroup');
+                if (useLLM) {
+                    providerGroup.style.display = 'block';
+                    modelGroup.style.display = 'block';
+                    // Load models for the current provider selection
+                    const currentProvider = document.getElementById('uploadLlmProvider').value;
+                    loadUploadLLMModels(currentProvider);
+                } else {
+                    providerGroup.style.display = 'none';
+                    modelGroup.style.display = 'none';
+                }
             });
             
             // Load models for the current provider selections after providers are loaded
@@ -2205,17 +2535,49 @@
 
         // Selective deletion functions
         function toggleSelectAll(type) {
-            const checkboxes = document.querySelectorAll(`input[data-type="${type}"]`);
-            const selectAllCheckbox = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
-            
-            checkboxes.forEach(checkbox => {
+            let selector;
+            if (type === 'documents') {
+                selector = 'input[data-type="cv"], input[data-type="cover_letters"], input[data-type="other_documents"]';
+            } else if (type === 'cv') {
+                selector = 'input[data-type="cv"]';
+            } else if (type === 'cover_letters') {
+                selector = 'input[data-type="cover_letters"]';
+            } else if (type === 'experiences') {
+                selector = 'input[data-type="experiences"]';
+            } else if (type === 'company_research') {
+                selector = 'input[data-type="company_research"]';
+            } else if (type === 'other_documents') {
+                selector = 'input[data-type="other_documents"]';
+            } else {
+                selector = `input[data-type="${type}"]`;
+            }
+            // Map type to correct select all checkbox ID
+            const selectAllIdMap = {
+                'documents': 'selectAllDocuments',
+                'cv': 'selectAllCV',
+                'cover_letters': 'selectAllCoverLetters',
+                'other_documents': 'selectAllOtherDocuments',
+                'experiences': 'selectAllExperiences',
+                'company_research': 'selectAllCompanyResearch'
+            };
+            const selectAllCheckbox = document.getElementById(selectAllIdMap[type] || `selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+            if (!selectAllCheckbox) return;
+            document.querySelectorAll(selector).forEach(checkbox => {
                 checkbox.checked = selectAllCheckbox.checked;
             });
+            // If toggling main documents, also uncheck all sub select-alls if unchecked
+            if (type === 'documents' && !selectAllCheckbox.checked) {
+                ['selectAllCV', 'selectAllCoverLetters', 'selectAllOtherDocuments'].forEach(subId => {
+                    const subBox = document.getElementById(subId);
+                    if (subBox) subBox.checked = false;
+                });
+            }
             updateSelectedCount();
         }
 
         function updateSelectedCount() {
-            const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked:not([id^="selectAll"])');
+            // Only count checked item checkboxes in the database list (not select all checkboxes)
+            const selectedCheckboxes = document.querySelectorAll('.database-item input[type="checkbox"]:checked');
             const countElement = document.getElementById('selectedCount');
             countElement.textContent = `${selectedCheckboxes.length} items selected`;
         }
@@ -2767,6 +3129,192 @@
             const provider = document.getElementById('chatLlmProvider').value;
             chatProviderModelSelections[provider] = this.value;
         });
+
+        // Show/hide Vision LLM provider/model based on logo recognition selection
+        document.getElementById('logoRecognition').addEventListener('change', function() {
+            const value = this.value;
+            const providerGroup = document.getElementById('visionLLMProviderGroup');
+            const modelGroup = document.getElementById('visionLLMModelGroup');
+            if (value === 'vision_llm') {
+                providerGroup.style.display = 'block';
+                modelGroup.style.display = 'block';
+            } else {
+                providerGroup.style.display = 'none';
+                modelGroup.style.display = 'none';
+            }
+        });
+
+        async function showFullData(docId) {
+            const fullDataDiv = document.getElementById(`fullData-${docId}`);
+            if (fullDataDiv.style.display === 'none') {
+                // Fetch full parsed data from backend
+                const resp = await fetch(`/document/${docId}`);
+                const data = await resp.json();
+                fullDataDiv.textContent = JSON.stringify(data, null, 2);
+                fullDataDiv.style.display = 'block';
+            } else {
+                fullDataDiv.style.display = 'none';
+            }
+        }
+
+        async function updateVisionLlmModels() {
+            const provider = document.getElementById('visionLlmProvider').value;
+            const modelSelect = document.getElementById('visionLlmModel');
+            modelSelect.innerHTML = '<option>Loading...</option>';
+            try {
+                const response = await fetch(`/llm-models/${provider}`);
+                const data = await response.json();
+                modelSelect.innerHTML = '';
+                if (data.models && data.models.length > 0) {
+                    data.models.forEach(model => {
+                        const opt = document.createElement('option');
+                        opt.value = model;
+                        opt.textContent = model;
+                        modelSelect.appendChild(opt);
+                    });
+                    // Set default model if available
+                    if (data.current_model && data.models.includes(data.current_model)) {
+                        modelSelect.value = data.current_model;
+                    }
+                } else {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'No models available';
+                    modelSelect.appendChild(opt);
+                }
+            } catch (error) {
+                modelSelect.innerHTML = '<option>Error loading models</option>';
+            }
+        }
+        // Initialize models on page load
+        updateVisionLlmModels();
+
+        function toggleVisionLlmOptions() {
+            const enabled = document.getElementById('enableVisionLlm').checked;
+            document.getElementById('visionLlmProviderGroup').style.display = enabled ? 'block' : 'none';
+            document.getElementById('visionLlmModelGroup').style.display = enabled ? 'block' : 'none';
+            document.getElementById('logoRecognition').value = enabled ? 'vision_llm' : 'none';
+            if (enabled) {
+                document.getElementById('visionLlmProvider').value = 'ollama';
+                updateVisionLlmModels();
+            }
+        }
+        // ... existing code ...
+        // Optionally, initialize the checkbox state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('enableVisionLlm').checked = false;
+            toggleVisionLlmOptions();
+        });
+
+        function updateDebugPanel() {
+            const debugPanel = document.getElementById('debugPanel');
+            const uploadBtn = document.getElementById('uploadBtn');
+            if (!debugPanel || !uploadBtn) return;
+            debugPanel.innerHTML =
+                `<b>selectedFiles:</b> ${JSON.stringify(selectedFiles.map(f => f.name))}<br>` +
+                `<b>Upload Button Disabled:</b> ${uploadBtn.disabled}`;
+            debugPanel.style.display = 'block';
+        }
+        // Patch addFiles, removeFile, updateFileList to call updateDebugPanel
+        const _addFiles = addFiles;
+        addFiles = function(files) { _addFiles(files); updateDebugPanel(); };
+        const _removeFile = removeFile;
+        removeFile = function(index) { _removeFile(index); updateDebugPanel(); };
+        const _updateFileList = updateFileList;
+        updateFileList = function() { _updateFileList(); updateDebugPanel(); };
+        // Also update on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', updateDebugPanel);
+
+        function clearFileSelection() {
+            selectedFiles = [];
+            updateFileList();
+            document.getElementById('fileInput').value = '';
+        }
+
+        // Add a standalone LinkedIn profile import (no file)
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadTab = document.getElementById('upload-tab');
+            if (uploadTab) {
+                const btn = document.createElement('button');
+                btn.className = 'btn';
+                btn.textContent = 'Add LinkedIn Profile (No File)';
+                btn.onclick = showLinkedInProfileModal;
+                uploadTab.insertBefore(btn, uploadTab.firstChild.nextSibling);
+            }
+        });
+
+        function showLinkedInProfileModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Add LinkedIn Profile</h3>
+                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <label>LinkedIn Profile URL:</label>
+                        <input type="text" id="standaloneLinkedinUrl" style="width:100%;margin-bottom:10px;">
+                        <label>Email:</label>
+                        <input type="text" id="standaloneLinkedinEmail" style="width:100%;margin-bottom:10px;">
+                        <label>Password:</label>
+                        <input type="password" id="standaloneLinkedinPassword" style="width:100%;margin-bottom:10px;">
+                        <button class="btn" onclick="submitStandaloneLinkedinProfile(this)">Import LinkedIn Profile</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function submitStandaloneLinkedinProfile(btn) {
+            const modal = btn.closest('.modal');
+            const url = document.getElementById('standaloneLinkedinUrl').value.trim();
+            const email = document.getElementById('standaloneLinkedinEmail').value.trim();
+            const password = document.getElementById('standaloneLinkedinPassword').value;
+            if (!url || !email || !password) {
+                alert('Please provide LinkedIn URL, email, and password.');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('password', password);
+                formData.append('profile_url', url);
+                const response = await fetch('/import-linkedin', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('LinkedIn profile imported successfully!');
+                    checkDatabase();
+                    modal.remove();
+                } else {
+                    alert('Error: ' + (result.detail || 'Failed to import LinkedIn profile.'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Import LinkedIn Profile';
+            }
+        }
+
+        // --- File type bulk set logic ---
+        function setAllFileTypes(type) {
+            // Set all type dropdowns to the given type
+            selectedFiles.forEach((file, index) => {
+                const typeSelect = document.getElementById(`type-${index}`);
+                if (typeSelect) {
+                    typeSelect.value = type;
+                    // Trigger change event to update LinkedIn URL input visibility
+                    handleTypeChange(index);
+                }
+            });
+        }
     </script>
 </body>
 </html> 

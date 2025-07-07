@@ -258,4 +258,19 @@ RECENCY_PERIOD_DAYS=999999
 - Backup database before running migration
 - Check for any existing weight columns
 - Verify database permissions
-- Test migration on a copy first 
+- Test migration on a copy first
+
+## How recency is determined
+
+Relevance for RAG is determined by (in order of precedence):
+1. **Date in filename** (e.g., `YYYY-MM-DD_Cover-Letter_Company.pdf` or `YYYY-MM-DD_CV_other-info.pdf`)
+2. **Date in document content** (first date found in the file, e.g., `2024-10-21`)
+3. **Upload date** (if no date found in filename or content)
+
+**Upload order does not affect relevance.**
+
+If you want a particular document to be prioritized, ensure the filename or content contains the correct date.
+
+### Robust error handling
+
+- The backend now robustly parses the `DOCUMENT_RECENCY_PERIOD_DAYS`

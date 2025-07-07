@@ -63,35 +63,57 @@ def upload_document(
     document_type: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    from app.services.filename_parser import FilenameParser
+    
+    # Parse filename for date and document type information
+    filename_info = FilenameParser.parse_filename(file.filename or "unknown_file")
+    
+    # Use filename document type if available and valid, otherwise use provided type
+    detected_document_type = filename_info.get('document_type')
+    if detected_document_type and detected_document_type in ['cv', 'cover_letter', 'linkedin', 'other']:
+        final_document_type = detected_document_type
+    else:
+        final_document_type = document_type
+    
     file_path = UPLOAD_DIR / (file.filename or "unknown_file")
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    parsed = document_parser.parse_document(str(file_path), document_type)
-    # Calculate document weight based on type
-    rag_service = RAGService(db)
-    document_weight = rag_service.get_document_type_weight(document_type)
+    parsed = document_parser.parse_document(str(file_path), final_document_type)
     
+    # Calculate document weight using RAG service (includes filename date weighting)
+    rag_service = RAGService(db)
+    
+    # Create document record
     doc = Document(
         filename=file.filename,
         file_path=str(file_path),
-        document_type=document_type,
+        document_type=final_document_type,
         content=parsed["content"],
         parsed_data=parsed["parsed_data"],
-        weight=document_weight
+        weight=1.0  # Will be updated after creation
     )
+    
     db.add(doc)
     db.commit()
     db.refresh(doc)
+    
+    # Update weight based on filename date and document type
+    calculated_weight = rag_service.calculate_document_weight(doc)
+    db.query(Document).filter(Document.id == doc.id).update({"weight": calculated_weight})
+    db.commit()
+    db.refresh(doc)
+    
     return doc
 
 @router.post("/import-linkedin", response_model=DocumentResponse)
 def import_linkedin(
     email: str = Form(...),
     password: str = Form(...),
+    profile_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
     scraper = LinkedInScraper(email, password)
-    profile_data = scraper.scrape_profile()
+    profile_data = scraper.scrape_profile(profile_url) if profile_url else scraper.scrape_profile()
     # Calculate document weight for LinkedIn
     rag_service = RAGService(db)
     document_weight = rag_service.get_document_type_weight("linkedin")
@@ -157,13 +179,25 @@ def get_llm_providers():
 
 @router.get("/llm-models/{provider}")
 def get_llm_models(provider: str):
-    """Get available models for a specific LLM provider"""
+    """Get available models for a specific LLM provider (text and vision)."""
     llm_service = LLMService(provider=provider)
     models = llm_service.list_models()
+    default_vision_model = llm_service.get_default_vision_model()
     return {
         "provider": provider,
         "models": models or [],
-        "current_model": llm_service.current_model
+        "current_model": llm_service.current_model,
+        "default_vision_model": default_vision_model
+    }
+
+@router.get("/vision-models-available/{provider}")
+def check_vision_models_available(provider: str):
+    """Check if any vision models are actually available for a specific provider."""
+    llm_service = LLMService(provider=provider)
+    has_vision = llm_service.has_vision_models()
+    return {
+        "provider": provider,
+        "has_vision_models": has_vision
     }
 
 @router.post("/test-llm-connection")
@@ -803,9 +837,17 @@ def create_cover_letter(req: dict, db: Session = Depends(get_db)):
 def upload_multiple_documents(
     files: List[UploadFile] = File(...),
     document_types: List[str] = Form(...),
+    use_llm_extraction: str = Form("false"),
+    llm_provider: Optional[str] = Form(None),
+    llm_model: Optional[str] = Form(None),
+    extract_images: str = Form("true"),
+    logo_recognition: str = Form("none"),
+    vision_llm_provider: str = Form("google"),
+    vision_llm_model: str = Form("gemini-1.5-flash"),
     db: Session = Depends(get_db)
 ):
     """Upload multiple documents at once with specified types"""
+    import os
     if len(files) != len(document_types):
         raise HTTPException(status_code=400, detail="Number of files must match number of document types")
     
@@ -813,25 +855,103 @@ def upload_multiple_documents(
     
     for i, (file, document_type) in enumerate(zip(files, document_types)):
         try:
-            # Create unique filename to avoid conflicts
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            safe_filename = f"{timestamp}_{i}_{file.filename or 'unknown_file'}"
+            from app.services.filename_parser import FilenameParser
+            # Parse filename for date and document type information
+            filename_info = FilenameParser.parse_filename(file.filename or "unknown_file")
+            # Use filename document type if available and valid, otherwise use provided type
+            detected_document_type = filename_info.get('document_type')
+            if detected_document_type and detected_document_type in ['cv', 'cover_letter', 'linkedin', 'other']:
+                final_document_type = detected_document_type
+            else:
+                final_document_type = document_type
+
+            # --- NEW LOGIC: Determine best filename for saving ---
+            # Try to extract date from filename
+            date_obj = filename_info.get('date')
+            # If no date in filename, try to extract from content
+            content_for_date = None
+            if not date_obj:
+                # Temporarily save file to memory to extract content
+                import tempfile
+                import os
+                with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                    tmp.write(file.file.read())
+                    tmp.flush()
+                    tmp_path = tmp.name
+                # Try to parse content for date
+                from app.services.document_parser import LegacyDocumentParser
+                parser = LegacyDocumentParser()
+                content_for_date = parser._extract_content(tmp_path, os.path.splitext(tmp_path)[1].lower())
+                # Remove temp file
+                os.unlink(tmp_path)
+                # Try to extract date from content
+                date_obj = RAGService._extract_date_from_content(content_for_date)
+                # Reset file pointer for actual save
+                file.file.seek(0)
+            # Build filename
+            if date_obj:
+                date_str = date_obj.strftime('%Y-%m-%d')
+                # Use type and company if available
+                doc_type_str = filename_info.get('document_type') or final_document_type
+                company_str = filename_info.get('company')
+                # Map doc_type to filename format
+                type_map = {'cv': 'CV', 'cover_letter': 'Cover-Letter', 'linkedin': 'LinkedIn', 'other': 'Other'}
+                doc_type_fmt = type_map.get(doc_type_str, doc_type_str.title())
+                if company_str:
+                    base_filename = f"{date_str}_{doc_type_fmt}_{company_str}"
+                else:
+                    base_filename = f"{date_str}_{doc_type_fmt}"
+                ext = os.path.splitext(file.filename or "")[1] or ".pdf"
+                safe_filename = f"{base_filename}_{i}{ext}"
+            else:
+                # Fallback to timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                ext = os.path.splitext(file.filename or "")[1] or ".pdf"
+                safe_filename = f"{timestamp}_{i}_{file.filename or 'unknown_file'}"
             file_path = UPLOAD_DIR / safe_filename
             
             # Save file
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
-            # Parse document
-            parsed = document_parser.parse_document(str(file_path), document_type)
+            # Parse document with optional LLM enhancement and image extraction
+            use_llm = use_llm_extraction.lower() == "true"
+            extract_images_flag = extract_images.lower() == "true"
+            
+            if use_llm:
+                # Use LLM-enhanced parsing with image extraction
+                parsed = document_parser.parse_document_with_llm(
+                    str(file_path), 
+                    final_document_type, 
+                    llm_provider=llm_provider, 
+                    llm_model=llm_model,
+                    extract_images=extract_images_flag
+                )
+            else:
+                # Use standard parsing with optional image extraction
+                if extract_images_flag:
+                    try:
+                        from app.services.enhanced_document_parser import EnhancedDocumentParser
+                        enhanced_parser = EnhancedDocumentParser()
+                        parsed = enhanced_parser.parse_document_with_images(
+                            str(file_path), final_document_type, extract_images_flag,
+                            logo_recognition="vision_llm",
+                            vision_llm_provider=vision_llm_provider,
+                            vision_llm_model=vision_llm_model
+                        )
+                    except ImportError:
+                        parsed = document_parser.parse_document(str(file_path), final_document_type)
+                else:
+                    parsed = document_parser.parse_document(str(file_path), final_document_type)
             
             # Create document record
             doc = Document(
                 filename=file.filename or f"document_{i}",
                 file_path=str(file_path),
-                document_type=document_type,
+                document_type=final_document_type,
                 content=parsed["content"],
-                parsed_data=parsed["parsed_data"]
+                parsed_data=parsed["parsed_data"],
+                weight=1.0  # Will be updated after creation
             )
             db.add(doc)
             uploaded_docs.append(doc)
@@ -842,6 +962,15 @@ def upload_multiple_documents(
             raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
     
     # Commit all documents
+    db.commit()
+    
+    # Calculate weights for all documents based on filename dates
+    rag_service = RAGService(db)
+    for doc in uploaded_docs:
+        calculated_weight = rag_service.calculate_document_weight(doc)
+        db.query(Document).filter(Document.id == doc.id).update({"weight": calculated_weight})
+    
+    # Commit weight updates
     db.commit()
     
     # Refresh all documents to get their IDs

@@ -6,6 +6,8 @@ from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm import Session
 from app.models import Document
 import re
+from datetime import datetime
+from app.services.filename_parser import FilenameParser
 
 class RAGService:
     def __init__(self, db: Session):
@@ -19,7 +21,12 @@ class RAGService:
         
         # Load document weighting configuration
         self.base_weight = float(os.getenv('DOCUMENT_BASE_WEIGHT', '1.0'))
-        self.recency_period_days = int(os.getenv('DOCUMENT_RECENCY_PERIOD_DAYS', '365'))
+        # Robust parsing for recency period days
+        try:
+            self.recency_period_days = int(os.getenv('DOCUMENT_RECENCY_PERIOD_DAYS', '365'))
+        except Exception as e:
+            print(f"Warning: Invalid DOCUMENT_RECENCY_PERIOD_DAYS env var: {os.getenv('DOCUMENT_RECENCY_PERIOD_DAYS')}. Defaulting to 365.")
+            self.recency_period_days = 365
         self.min_weight_multiplier = float(os.getenv('DOCUMENT_MIN_WEIGHT_MULTIPLIER', '0.1'))
         self.recency_weighting_enabled = os.getenv('DOCUMENT_RECENCY_WEIGHTING_ENABLED', 'true').lower() == 'true'
         
@@ -104,15 +111,26 @@ class RAGService:
                     similarity = self.cosine_similarity(query_embedding, embedding)
                     
                     # Calculate document weight based on type and recency
-                    doc_type = doc.document_type.lower()
+                    doc_type = str(doc.document_type).lower()
                     type_weight = self.document_type_weights.get(doc_type, self.document_type_weights['other'])
                     
                     # Apply recency weighting if enabled
                     if self.recency_weighting_enabled:
-                        from datetime import datetime
-                        days_since_upload = (datetime.now() - doc.uploaded_at).days
-                        recency_multiplier = max(self.min_weight_multiplier, 
-                                               1.0 - (days_since_upload / self.recency_period_days))
+                        filename_str = str(doc.filename) if doc.filename is not None else ""
+                        content_str = str(doc.content) if doc.content is not None else ""
+                        filename_date = FilenameParser.extract_date_from_filename(filename_str)
+                        content_date = None
+                        if not filename_date:
+                            # Try to extract date from content (for CVs and cover letters)
+                            content_date = self._extract_date_from_content(content_str)
+                        if filename_date:
+                            days_since_document = (datetime.now() - filename_date).days
+                        elif content_date:
+                            days_since_document = (datetime.now() - content_date).days
+                        else:
+                            days_since_upload = (datetime.now() - doc.uploaded_at).days
+                            days_since_document = days_since_upload
+                        recency_multiplier = max(self.min_weight_multiplier, 1.0 - (days_since_document / self.recency_period_days))
                     else:
                         recency_multiplier = 1.0
                     
@@ -165,7 +183,7 @@ class RAGService:
                 CompanyResearch.company_name.ilike(f"%{company_name}%")
             ).order_by(CompanyResearch.researched_at.desc()).first()
             
-            if company_research and company_research.research_data:
+            if company_research is not None and company_research.research_data is not None:
                 research_data = company_research.research_data
                 research_context = []
                 
@@ -205,24 +223,67 @@ Use this additional context to make your cover letter more specific and relevant
         return enhanced_prompt 
 
     def calculate_document_weight(self, document: Document) -> float:
-        """Calculate the weight for a document based on type and recency"""
+        """Calculate the weight for a document based on type and recency.
+        Recency is determined by (in order of precedence):
+        1. Date in filename (YYYY-MM-DD etc)
+        2. Date in document content (first YYYY-MM-DD or similar)
+        3. Upload date (database timestamp)
+        """
         # Get document type weight
-        doc_type = document.document_type.lower()
+        doc_type = str(document.document_type).lower()
         type_weight = self.document_type_weights.get(doc_type, self.document_type_weights['other'])
-        
+
         # Apply recency weighting if enabled
         if self.recency_weighting_enabled:
-            from datetime import datetime
-            days_since_upload = (datetime.now() - document.uploaded_at).days
-            recency_multiplier = max(self.min_weight_multiplier, 
-                                   1.0 - (days_since_upload / self.recency_period_days))
+            filename_str = str(document.filename) if document.filename is not None else ""
+            content_str = str(document.content) if document.content is not None else ""
+            filename_date = FilenameParser.extract_date_from_filename(filename_str)
+            content_date = None
+            if not filename_date:
+                # Try to extract date from content (for CVs and cover letters)
+                content_date = self._extract_date_from_content(content_str)
+            if filename_date:
+                days_since_document = (datetime.now() - filename_date).days
+            elif content_date:
+                days_since_document = (datetime.now() - content_date).days
+            else:
+                days_since_upload = (datetime.now() - document.uploaded_at).days
+                days_since_document = days_since_upload
+            recency_multiplier = max(self.min_weight_multiplier, 1.0 - (days_since_document / self.recency_period_days))
         else:
             recency_multiplier = 1.0
-        
+
         # Calculate final weight combining type and recency
         final_weight = self.base_weight * type_weight * recency_multiplier
-        
         return final_weight
+
+    @staticmethod
+    def _extract_date_from_content(content: str):
+        """Extract the first date in YYYY-MM-DD, YYYY/MM/DD, DD-MM-YYYY, or similar from the content string."""
+        # Try several date patterns
+        date_patterns = [
+            r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})',  # YYYY-MM-DD or YYYY/MM/DD
+            r'(\d{1,2})[-/](\d{1,2})[-/](\d{4})',  # DD-MM-YYYY or MM-DD-YYYY
+        ]
+        for pattern in date_patterns:
+            match = re.search(pattern, content)
+            if match:
+                try:
+                    if len(match.groups()) == 3:
+                        parts = [int(x) for x in match.groups()]
+                        # Heuristic: if first part is 4 digits, it's year
+                        if len(match.group(1)) == 4:
+                            return datetime(parts[0], parts[1], parts[2])
+                        else:
+                            # Could be DD-MM-YYYY or MM-DD-YYYY; try both
+                            for order in [(2,1,0), (2,0,1)]:
+                                try:
+                                    return datetime(parts[order[0]], parts[order[1]], parts[order[2]])
+                                except:
+                                    continue
+                except Exception:
+                    continue
+        return None
 
     def get_document_type_weight(self, document_type: str) -> float:
         """Get the weight multiplier for a specific document type"""

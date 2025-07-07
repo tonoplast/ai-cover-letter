@@ -43,43 +43,47 @@ class LinkedInScraper:
         time.sleep(3)
         data = {}
         try:
-            data['name'] = self.driver.find_element(By.CSS_SELECTOR, 'h1.text-heading-xlarge').text
+            # Name: robust selector for modern LinkedIn
+            data['name'] = self.driver.find_element(By.CSS_SELECTOR, 'div.text-heading-xlarge, h1.text-heading-xlarge, h1').text
         except Exception:
             data['name'] = ''
         try:
-            data['headline'] = self.driver.find_element(By.CSS_SELECTOR, 'div.text-body-medium.break-words').text
+            # Headline: robust selector
+            data['headline'] = self.driver.find_element(By.CSS_SELECTOR, 'div.text-body-medium.break-words, div.text-body-medium, .text-body-medium').text
         except Exception:
             data['headline'] = ''
         try:
-            data['location'] = self.driver.find_element(By.CSS_SELECTOR, 'span.text-body-small.inline.t-black--light.break-words').text
+            # Location: robust selector
+            data['location'] = self.driver.find_element(By.CSS_SELECTOR, 'span.text-body-small.inline.t-black--light.break-words, .text-body-small.inline.t-black--light, .text-body-small').text
         except Exception:
             data['location'] = ''
-        # Experience, education, and skills extraction (simplified)
-        data['experiences'] = self._extract_experiences()
-        data['education'] = self._extract_education()
-        data['skills'] = self._extract_skills()
+        # Experience, education, and skills extraction (modern selectors)
+        data['experiences'] = self._extract_experiences_modern()
+        data['education'] = self._extract_education_modern()
+        data['skills'] = self._extract_skills_modern()
         self.driver.quit()
         return data
 
-    def _extract_experiences(self):
+    def _extract_experiences_modern(self):
         experiences = []
         try:
-            exp_sections = self.driver.find_elements(By.CSS_SELECTOR, 'section#experience-section li')
+            # Modern LinkedIn: experience section is a list of divs with data-section="experience-section"
+            exp_sections = self.driver.find_elements(By.CSS_SELECTOR, 'section[data-section="experience-section"] ul li, section[id*="experience"] ul li, .experience__list li')
             for exp in exp_sections:
                 try:
-                    title = exp.find_element(By.CSS_SELECTOR, 'h3').text
+                    title = exp.find_element(By.CSS_SELECTOR, 'span[aria-hidden="true"], .t-bold span, .t-bold').text
                 except Exception:
                     title = ''
                 try:
-                    company = exp.find_element(By.CSS_SELECTOR, 'p.pv-entity__secondary-title').text
+                    company = exp.find_element(By.CSS_SELECTOR, 'span.t-14.t-normal, .t-normal span, .t-normal').text
                 except Exception:
                     company = ''
                 try:
-                    date_range = exp.find_element(By.CSS_SELECTOR, 'h4.pv-entity__date-range span:nth-child(2)').text
+                    date_range = exp.find_element(By.CSS_SELECTOR, 'span.t-14.t-normal.t-black--light, .t-black--light span, .t-black--light').text
                 except Exception:
                     date_range = ''
                 try:
-                    description = exp.find_element(By.CSS_SELECTOR, 'div.pv-entity__extra-details').text
+                    description = exp.find_element(By.CSS_SELECTOR, 'div.pv-entity__extra-details, .pvs-list__outer-container, .display-flex.flex-column.full-width').text
                 except Exception:
                     description = ''
                 experiences.append({
@@ -92,21 +96,21 @@ class LinkedInScraper:
             pass
         return experiences
 
-    def _extract_education(self):
+    def _extract_education_modern(self):
         education = []
         try:
-            edu_sections = self.driver.find_elements(By.CSS_SELECTOR, 'section#education-section li')
+            edu_sections = self.driver.find_elements(By.CSS_SELECTOR, 'section[data-section="education-section"] ul li, section[id*="education"] ul li, .education__list li')
             for edu in edu_sections:
                 try:
-                    school = edu.find_element(By.CSS_SELECTOR, 'h3').text
+                    school = edu.find_element(By.CSS_SELECTOR, 'span[aria-hidden="true"], .t-bold span, .t-bold').text
                 except Exception:
                     school = ''
                 try:
-                    degree = edu.find_element(By.CSS_SELECTOR, 'span.pv-entity__comma-item').text
+                    degree = edu.find_element(By.CSS_SELECTOR, 'span.t-14.t-normal, .t-normal span, .t-normal').text
                 except Exception:
                     degree = ''
                 try:
-                    date_range = edu.find_element(By.CSS_SELECTOR, 'p.pv-entity__dates span:nth-child(2)').text
+                    date_range = edu.find_element(By.CSS_SELECTOR, 'span.t-14.t-normal.t-black--light, .t-black--light span, .t-black--light').text
                 except Exception:
                     date_range = ''
                 education.append({
@@ -118,12 +122,15 @@ class LinkedInScraper:
             pass
         return education
 
-    def _extract_skills(self):
+    def _extract_skills_modern(self):
         skills = []
         try:
-            skill_elements = self.driver.find_elements(By.CSS_SELECTOR, 'span.pv-skill-category-entity__name-text')
+            # Modern LinkedIn: skills are in span elements with .pvs-entity__skill-name or similar
+            skill_elements = self.driver.find_elements(By.CSS_SELECTOR, 'span.pvs-entity__skill-name, span[aria-hidden="true"], .skill-entity__skill-name')
             for skill in skill_elements:
-                skills.append(skill.text)
+                text = skill.text.strip()
+                if text and text not in skills:
+                    skills.append(text)
         except Exception:
             pass
         return skills 

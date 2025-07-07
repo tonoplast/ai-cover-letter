@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.models import Document, Experience, Skill
 from app.database import get_db
 import json
-
 # Suppress torch warnings about pin_memory
 warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
@@ -211,87 +210,28 @@ class LegacyDocumentParser:
         return personal_info
     
     def _extract_experiences(self, content: str) -> List[Dict[str, Any]]:
-        """Extract work experiences from content"""
+        """Robust experience extraction: don't fail if group is missing"""
+        import re
+        # Try to match various section headers
+        experience_sections = re.split(r'(?i)\n\s*(EXPERIENCE|WORK EXPERIENCE|PROFESSIONAL EXPERIENCE|EMPLOYMENT HISTORY|CAREER HISTORY|EMPLOYMENT|WORK HISTORY|WORK BACKGROUND|WORK)\s*:?\n', content)
+        if len(experience_sections) < 2:
+            return []
+        # Take the section after the first match
+        exp_content = experience_sections[1] if len(experience_sections) > 1 else experience_sections[-1]
+        # Split into jobs by double newlines or bullet points
+        jobs = re.split(r'\n\s*[-•]\s*|\n\n+', exp_content)
         experiences = []
-        
-        # Common section headers for experience
-        experience_headers = [
-            r'work\s+experience',
-            r'employment\s+history',
-            r'professional\s+experience',
-            r'career\s+history',
-            r'job\s+history'
-        ]
-        
-        # Find experience section
-        experience_section = ""
-        for header in experience_headers:
-            match = re.search(header, content, re.IGNORECASE)
-            if match:
-                start_idx = match.end()
-                # Find next major section
-                next_section = re.search(r'\n\s*[A-Z][A-Z\s]+\n', content[start_idx:])
-                if next_section:
-                    experience_section = content[start_idx:start_idx + next_section.start()]
-                else:
-                    experience_section = content[start_idx:]
-                break
-        
-        if not experience_section:
-            # Fallback: look for date patterns
-            experience_section = content
-        
-        # Extract individual experiences
-        # Look for date patterns and job titles
-        date_patterns = [
-            r'(\d{4})\s*[-–]\s*(\d{4}|\bpresent\b|\bcurrent\b)',
-            r'(\w+\s+\d{4})\s*[-–]\s*(\w+\s+\d{4}|\bpresent\b|\bcurrent\b)',
-            r'(\d{1,2}/\d{4})\s*[-–]\s*(\d{1,2}/\d{4}|\bpresent\b|\bcurrent\b)'
-        ]
-        
-        lines = experience_section.split('\n')
-        current_experience = {}
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
+        for job in jobs:
+            job = job.strip()
+            if len(job) < 10:
                 continue
-            
-            # Check for date patterns
-            for pattern in date_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
-                if match:
-                    if current_experience:
-                        experiences.append(current_experience)
-                    
-                    current_experience = {
-                        'start_date': match.group(1),
-                        'end_date': match.group(2) if match.group(2).lower() not in ['present', 'current'] else None,
-                        'is_current': match.group(2).lower() in ['present', 'current']
-                    }
-                    break
-            
-            # Extract job title and company
-            if current_experience and not current_experience.get('title'):
-                # Look for job title patterns
-                title_patterns = [
-                    r'([A-Z][A-Za-z\s]+(?:Engineer|Developer|Manager|Director|Lead|Analyst|Consultant|Specialist))',
-                    r'([A-Z][A-Za-z\s]+(?:at|@)\s+([A-Z][A-Za-z\s]+))'
-                ]
-                
-                for pattern in title_patterns:
-                    match = re.search(pattern, line)
-                    if match:
-                        if 'at' in line or '@' in line:
-                            current_experience['title'] = match.group(1).split('at')[0].split('@')[0].strip()
-                            current_experience['company'] = match.group(2).strip()
-                        else:
-                            current_experience['title'] = match.group(1).strip()
-                        break
-        
-        if current_experience:
-            experiences.append(current_experience)
-        
+            # Try to extract title, company, duration, description
+            m = re.match(r'(?P<title>.+?) at (?P<company>.+?) \((?P<duration>.+?)\)\s*-\s*(?P<description>.+)', job)
+            if m:
+                experiences.append(m.groupdict())
+            else:
+                # Fallback: just use the job text
+                experiences.append({"description": job})
         return experiences
     
     def _extract_education(self, content: str) -> List[Dict[str, str]]:
@@ -398,30 +338,222 @@ class DocumentParser:
             self.docling_parser = DoclingDocumentParser()
         
     def parse_document(self, file_path: str, document_type: str) -> Dict[str, Any]:
-        """Try docling parser first, fallback to legacy parser if needed"""
+        """Parse document using docling, legacy, or fallback to raw text extraction"""
         file_extension = Path(file_path).suffix.lower()
-        
-        # Check if docling supports this format
-        if self.docling_parser and file_extension in ['.pdf', '.docx', '.txt', '.md']:
+        content = None
+        parsed_data = {}
+        error_msgs = []
+        # Try docling first
+        if DOCILING_AVAILABLE:
             try:
-                return self.docling_parser.parse_document(file_path, document_type)
+                docling_parser = DoclingDocumentParser()
+                docling_result = docling_parser.parse_document(file_path, document_type)
+                content = docling_result.get("content")
+                parsed_data = docling_result.get("parsed_data", {})
             except Exception as e:
-                print(f"Docling parser failed: {e}. Falling back to legacy parser.")
-        
-        # Fallback to legacy parser
-        try:
-            return self.legacy_parser.parse_document(file_path, document_type)
-        except Exception as e:
-            print(f"Legacy parser also failed: {e}")
-            # Return a basic structure with error information
-            return {
-                "content": f"[Error parsing document: {str(e)}]",
-                "parsed_data": {"error": str(e)},
-                "document_type": document_type,
-                "parser": "error"
-            }
-    
+                error_msgs.append(f"docling: {e}")
+        # If docling fails or content is empty, try legacy
+        if not content or len(content.strip()) < 20:
+            try:
+                legacy_parser = LegacyDocumentParser()
+                legacy_result = legacy_parser.parse_document(file_path, document_type)
+                content = legacy_result.get("content")
+                parsed_data = legacy_result.get("parsed_data", {})
+            except Exception as e:
+                error_msgs.append(f"legacy: {e}")
+        # If both fail, fallback to raw text extraction for PDF
+        if (not content or len(content.strip()) < 20) and file_extension == ".pdf":
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as file:
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    content = "\n".join([page.extract_text() or "" for page in pdf_reader.pages])
+                parsed_data = {"content": content, "parser": "raw_pdf"}
+                error_msgs.append("docling and legacy failed, used raw PDF text extraction")
+            except Exception as e:
+                error_msgs.append(f"raw_pdf: {e}")
+        # If still no content, return error
+        if not content or len(content.strip()) < 20:
+            parsed_data = {"error": ", ".join(error_msgs) or "All parsers failed", "content": ""}
+            return {"content": "", "parsed_data": parsed_data, "document_type": document_type, "parser": "none"}
+        # Attach error messages if any
+        if error_msgs:
+            parsed_data["parsing_errors"] = error_msgs
+        return {"content": content, "parsed_data": parsed_data, "document_type": document_type, "parser": parsed_data.get("parser", "auto")}
 
+    def parse_document_with_llm(self, file_path: str, document_type: str, llm_provider: Optional[str] = None, llm_model: Optional[str] = None, extract_images: bool = True, logo_recognition: str = "none", vision_llm_provider: str = None, vision_llm_model: str = None) -> Dict[str, Any]:
+        """Parse document using LLM-enhanced extraction with optional image extraction"""
+        from app.services.llm_service import LLMService
+        # Always parse main document text for LLM extraction
+        basic_parsed = self.parse_document(file_path, document_type)
+        content = basic_parsed["content"]
+        # If extract_images is True, use enhanced parser for image text extraction
+        if extract_images:
+            try:
+                from app.services.enhanced_document_parser import EnhancedDocumentParser
+                enhanced_parser = EnhancedDocumentParser()
+                enhanced_parsed = enhanced_parser.parse_document_with_images(
+                    file_path, document_type, extract_images=True, logo_recognition=logo_recognition, vision_llm_provider=vision_llm_provider, vision_llm_model=vision_llm_model
+                )
+                # Merge image-extracted text into content if present
+                image_text = enhanced_parsed["parsed_data"].get("extracted_text", "")
+                if image_text:
+                    content += f"\n\n--- IMAGE EXTRACTED CONTENT ---\n{image_text}"
+                # Merge image analysis into parsed_data
+                if "image_analysis" in enhanced_parsed["parsed_data"]:
+                    basic_parsed["parsed_data"]["image_analysis"] = enhanced_parsed["parsed_data"]["image_analysis"]
+            except ImportError:
+                pass
+        # If no content extracted, return basic result
+        if not content or len(content.strip()) < 50:
+            return basic_parsed
+        # Create LLM service
+        llm_service = LLMService(provider=llm_provider, model=llm_model)
+        # Create extraction prompt based on document type
+        if document_type.lower() == "cv":
+            extraction_prompt = self._create_cv_extraction_prompt(content)
+        elif document_type.lower() == "cover_letter":
+            extraction_prompt = self._create_cover_letter_extraction_prompt(content)
+        elif document_type.lower() == "linkedin":
+            extraction_prompt = self._create_linkedin_extraction_prompt(content)
+        else:
+            return basic_parsed
+        try:
+            llm_response = llm_service.generate_text(extraction_prompt, max_tokens=2048, temperature=0.1)
+            if llm_response:
+                enhanced_parsed_data = self._parse_llm_extraction_response(llm_response, document_type)
+                basic_parsed["parsed_data"].update(enhanced_parsed_data)
+                basic_parsed["parsed_data"]["llm_enhanced"] = True
+                basic_parsed["parsed_data"]["llm_provider"] = llm_provider
+                basic_parsed["parsed_data"]["llm_model"] = llm_model
+            else:
+                basic_parsed["parsed_data"]["llm_enhanced"] = False
+                basic_parsed["parsed_data"]["llm_error"] = "No response from LLM"
+        except Exception as e:
+            print(f"LLM extraction failed: {e}")
+            basic_parsed["parsed_data"]["llm_enhanced"] = False
+            basic_parsed["parsed_data"]["llm_error"] = str(e)
+        return basic_parsed
+
+    def _create_cv_extraction_prompt(self, content: str) -> str:
+        """Create prompt for CV extraction"""
+        return f"""
+Please extract structured information from this CV/resume. Return ONLY a JSON object with the following structure:
+
+{{
+    "personal_info": {{
+        "name": "Full Name",
+        "email": "email@example.com", 
+        "phone": "phone number",
+        "location": "city, state/country",
+        "linkedin": "linkedin url if found"
+    }},
+    "summary": "Professional summary or objective",
+    "experiences": [
+        {{
+            "title": "Job Title",
+            "company": "Company Name", 
+            "duration": "Start Date - End Date or Present",
+            "description": "Detailed job description and achievements"
+        }}
+    ],
+    "education": [
+        {{
+            "degree": "Degree Name",
+            "institution": "University/Institution Name",
+            "year": "Graduation Year",
+            "gpa": "GPA if mentioned"
+        }}
+    ],
+    "skills": ["skill1", "skill2", "skill3"],
+    "certifications": ["cert1", "cert2"],
+    "languages": ["language1", "language2"]
+}}
+
+CV Content:
+{content}
+
+Extract the information and return ONLY the JSON object. Do not include any other text or explanations.
+"""
+
+    def _create_cover_letter_extraction_prompt(self, content: str) -> str:
+        """Create prompt for cover letter extraction"""
+        return f"""
+Please extract structured information from this cover letter. Return ONLY a JSON object with the following structure:
+
+{{
+    "recipient": "Recipient name if mentioned",
+    "company": "Company name",
+    "position": "Position being applied for",
+    "key_points": ["point1", "point2", "point3"],
+    "tone": "professional/enthusiastic/formal/conversational",
+    "writing_style": "brief description of writing style",
+    "call_to_action": "any call to action mentioned"
+}}
+
+Cover Letter Content:
+{content}
+
+Extract the information and return ONLY the JSON object. Do not include any other text or explanations.
+"""
+
+    def _create_linkedin_extraction_prompt(self, content: str) -> str:
+        """Create prompt for LinkedIn profile extraction"""
+        return f"""
+Please extract structured information from this LinkedIn profile. Return ONLY a JSON object with the following structure:
+
+{{
+    "personal_info": {{
+        "name": "Full Name",
+        "headline": "Professional headline",
+        "location": "Location",
+        "connections": "number of connections if mentioned"
+    }},
+    "summary": "Professional summary",
+    "experiences": [
+        {{
+            "title": "Job Title",
+            "company": "Company Name",
+            "duration": "Duration",
+            "description": "Job description"
+        }}
+    ],
+    "education": [
+        {{
+            "degree": "Degree",
+            "institution": "Institution",
+            "year": "Year"
+        }}
+    ],
+    "skills": ["skill1", "skill2", "skill3"]
+}}
+
+LinkedIn Profile Content:
+{content}
+
+Extract the information and return ONLY the JSON object. Do not include any other text or explanations.
+"""
+
+    def _parse_llm_extraction_response(self, response: str, document_type: str) -> Dict[str, Any]:
+        """Parse LLM response and extract structured data"""
+        try:
+            # Try to extract JSON from the response
+            import json
+            import re
+            
+            # Look for JSON in the response
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                parsed_data = json.loads(json_str)
+                return parsed_data
+            else:
+                # If no JSON found, return empty dict
+                return {}
+                
+        except Exception as e:
+            print(f"Failed to parse LLM response: {e}")
+            return {}
     
     def _extract_personal_info(self, content: str) -> Dict[str, str]:
         """Extract personal information from content"""
@@ -449,87 +581,28 @@ class DocumentParser:
         return personal_info
     
     def _extract_experiences(self, content: str) -> List[Dict[str, Any]]:
-        """Extract work experiences from content"""
+        """Robust experience extraction: don't fail if group is missing"""
+        import re
+        # Try to match various section headers
+        experience_sections = re.split(r'(?i)\n\s*(EXPERIENCE|WORK EXPERIENCE|PROFESSIONAL EXPERIENCE|EMPLOYMENT HISTORY|CAREER HISTORY|EMPLOYMENT|WORK HISTORY|WORK BACKGROUND|WORK)\s*:?\n', content)
+        if len(experience_sections) < 2:
+            return []
+        # Take the section after the first match
+        exp_content = experience_sections[1] if len(experience_sections) > 1 else experience_sections[-1]
+        # Split into jobs by double newlines or bullet points
+        jobs = re.split(r'\n\s*[-•]\s*|\n\n+', exp_content)
         experiences = []
-        
-        # Common section headers for experience
-        experience_headers = [
-            r'work\s+experience',
-            r'employment\s+history',
-            r'professional\s+experience',
-            r'career\s+history',
-            r'job\s+history'
-        ]
-        
-        # Find experience section
-        experience_section = ""
-        for header in experience_headers:
-            match = re.search(header, content, re.IGNORECASE)
-            if match:
-                start_idx = match.end()
-                # Find next major section
-                next_section = re.search(r'\n\s*[A-Z][A-Z\s]+\n', content[start_idx:])
-                if next_section:
-                    experience_section = content[start_idx:start_idx + next_section.start()]
-                else:
-                    experience_section = content[start_idx:]
-                break
-        
-        if not experience_section:
-            # Fallback: look for date patterns
-            experience_section = content
-        
-        # Extract individual experiences
-        # Look for date patterns and job titles
-        date_patterns = [
-            r'(\d{4})\s*[-–]\s*(\d{4}|\bpresent\b|\bcurrent\b)',
-            r'(\w+\s+\d{4})\s*[-–]\s*(\w+\s+\d{4}|\bpresent\b|\bcurrent\b)',
-            r'(\d{1,2}/\d{4})\s*[-–]\s*(\d{1,2}/\d{4}|\bpresent\b|\bcurrent\b)'
-        ]
-        
-        lines = experience_section.split('\n')
-        current_experience = {}
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
+        for job in jobs:
+            job = job.strip()
+            if len(job) < 10:
                 continue
-            
-            # Check for date patterns
-            for pattern in date_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
-                if match:
-                    if current_experience:
-                        experiences.append(current_experience)
-                    
-                    current_experience = {
-                        'start_date': match.group(1),
-                        'end_date': match.group(2) if match.group(2).lower() not in ['present', 'current'] else None,
-                        'is_current': match.group(2).lower() in ['present', 'current']
-                    }
-                    break
-            
-            # Extract job title and company
-            if current_experience and not current_experience.get('title'):
-                # Look for job title patterns
-                title_patterns = [
-                    r'([A-Z][A-Za-z\s]+(?:Engineer|Developer|Manager|Director|Lead|Analyst|Consultant|Specialist))',
-                    r'([A-Z][A-Za-z\s]+(?:at|@)\s+([A-Z][A-Za-z\s]+))'
-                ]
-                
-                for pattern in title_patterns:
-                    match = re.search(pattern, line)
-                    if match:
-                        if 'at' in line or '@' in line:
-                            current_experience['title'] = match.group(1).split('at')[0].split('@')[0].strip()
-                            current_experience['company'] = match.group(2).strip()
-                        else:
-                            current_experience['title'] = match.group(1).strip()
-                        break
-        
-        if current_experience:
-            experiences.append(current_experience)
-        
+            # Try to extract title, company, duration, description
+            m = re.match(r'(?P<title>.+?) at (?P<company>.+?) \((?P<duration>.+?)\)\s*-\s*(?P<description>.+)', job)
+            if m:
+                experiences.append(m.groupdict())
+            else:
+                # Fallback: just use the job text
+                experiences.append({"description": job})
         return experiences
     
     def _extract_education(self, content: str) -> List[Dict[str, str]]:

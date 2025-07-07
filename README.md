@@ -140,6 +140,7 @@ Visit [http://localhost:8000/](http://localhost:8000/) in your browser.
 - Drag & drop or select multiple files (CV, cover letter, LinkedIn, etc.).
 - Assign document types with configurable weighting.
 - Upload your most recent CV first for best results.
+- **Smart Filename Parsing:** The system automatically detects document types and dates from filenames in the format `YYYY-MM-DD_Type_Company-Name.ext`.
 
 #### ✍️ Generate Cover Letter Tab
 - **Manual:** Enter job title, company, and description, select tone, and generate.
@@ -283,12 +284,72 @@ curl -X POST "http://localhost:8000/chat-with-cover-letter" \
 
 ---
 
+## Filename-Based Date Extraction
+
+The AI Cover Letter Generator includes intelligent filename parsing that automatically extracts dates and document types from your uploaded files. This feature improves the recency weighting system by using the actual document date rather than just the upload date.
+
+### **Supported Filename Format**
+
+The system recognizes filenames in the following format:
+```
+YYYY-MM-DD_Type_Company-Name.ext
+```
+
+**Examples:**
+- `2025-05-01_CV_Data-Science.pdf` - CV from May 1, 2025 for Data Science role
+- `2024-10-21_Cover-Letter_Lookahead.pdf` - Cover letter from October 21, 2024 for Lookahead
+- `2023-09-01_CV_Neuroscience.pdf` - CV from September 1, 2023 for Neuroscience role
+- `2022-01-01_CV.pdf` - CV from January 1, 2022 (no company specified)
+
+### **Automatic Detection**
+
+When you upload documents, the system automatically:
+
+1. **Extracts the date** from the filename (if present)
+2. **Detects the document type** (CV, Cover-Letter, LinkedIn, etc.)
+3. **Extracts company information** (if included)
+4. **Uses the filename date for recency weighting** instead of upload date
+5. **Falls back to upload date** if no date is found in the filename
+
+### **Document Type Mapping**
+
+The system recognizes these document types in filenames:
+- `CV` or `Resume` → `cv`
+- `Cover-Letter` or `CoverLetter` → `cover_letter`
+- `LinkedIn` or `Profile` → `linkedin`
+- Other types → `other`
+
+### **Benefits**
+
+- **More Accurate Recency Weighting:** Uses the actual document date rather than upload date
+- **Automatic Document Type Detection:** Reduces manual selection errors
+- **Better RAG Performance:** More recent documents get higher weights for better context
+- **Consistent Formatting:** Generated documents follow the same naming convention
+
+### **Fallback Behavior**
+
+If a filename doesn't follow the expected format:
+- Document type falls back to the manually selected type
+- Date falls back to the upload timestamp
+- Recency weighting uses the upload date
+- No functionality is lost
+
+### **Generated Filenames**
+
+When the system generates new documents (like exported cover letters), it follows the same naming convention:
+```
+2025-01-15_Cover-Letter_Company-Name.pdf
+```
+
+---
+
 ## Advanced Features
 
 - **LinkedIn Integration:** Import your LinkedIn profile for richer context.
 - **Company Research:** Use multiple providers for company info, with fallback and rate limiting.
 - **Country-Specific Search:** Focus research on specific countries for more relevant results.
 - **Document Weighting:** Configure weights for different document types and recency periods.
+- **Filename-Based Date Extraction:** Automatically extracts dates and document types from filenames for improved recency weighting.
 - **Multiple LLM Providers:** Choose between local (Ollama), OpenAI, Anthropic, and Google Gemini models.
 - **Dynamic Model Loading:** Automatically loads available models for each provider.
 - **Anti-bot Scraping:** Selenium-based fallback for protected job sites, with configurable delays.
@@ -367,4 +428,71 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**For questions or support, open an issue or contact the maintainer.** 
+**For questions or support, open an issue or contact the maintainer.**
+
+## Logo Recognition Options: Open Source & Vision LLM
+
+The system supports logo recognition options for images in uploaded documents. You can select these options in the upload UI:
+
+- **None**: No logo recognition performed.
+- **Open Source**: (Stub) Intended for open-source logo recognition using models like OpenLogo or YOLO. Currently returns an empty result, but the backend is ready for integration.
+- **Vision LLM**: (Stub) Intended for future use with vision-capable LLMs (e.g., GPT-4o, Gemini, Claude 3 Vision). Currently returns an empty result.
+
+### How to Integrate OpenLogo or YOLO-based Logo Detection
+
+1. **Install YOLOv5/YOLOv8 or OpenLogo dependencies**
+   - [YOLOv5/YOLOv8](https://github.com/ultralytics/ultralytics):
+     ```bash
+     pip install ultralytics
+     ```
+   - [OpenLogo](https://github.com/MinchaoZhu/OpenLogo):
+     - Download the dataset and pre-trained models from the repo.
+     - Follow their setup instructions for inference.
+
+2. **Replace the `recognize_logos_openlogo` stub**
+   - Load your trained model (YOLO or OpenLogo).
+   - For each image, run detection and extract logo names from the results.
+   - Example (YOLOv5):
+     ```python
+     from ultralytics import YOLO
+     model = YOLO('path/to/best.pt')
+     results = model(image)
+     detected_logos = [r['name'] for r in results]  # Adjust based on model output
+     ```
+
+3. **Vision LLM Integration (Future)**
+   - When you have access to a vision LLM API, update the `recognize_logos_vision_llm` function to send the image and parse the response.
+   - Example (pseudo-code):
+     ```python
+     def recognize_logos_vision_llm(image):
+         # Convert image to base64 or bytes
+         # Send to LLM API endpoint
+         # Parse and return detected logo names
+         pass
+     ```
+
+4. **Testing**
+   - Use the `test_logo_recognition.py` script to test your integration on images in the `test_logos` folder.
+
+---
+
+**Note:**
+- Open-source logo detection requires a trained model and may need a GPU for best performance.
+- Vision LLMs require API access and may incur costs.
+
+For more details, see the comments in `app/services/enhanced_document_parser.py` and the test script.
+
+### Document Recency
+
+Relevance for RAG (Retrieval-Augmented Generation) is determined by (in order of precedence):
+1. **Date in filename** (e.g., `YYYY-MM-DD_Cover-Letter_Company.pdf` or `YYYY-MM-DD_CV_other-info.pdf`)
+2. **Date in document content** (first date found in the file, e.g., `2024-10-21`)
+3. **Upload date** (if no date found in filename or content)
+
+**Upload order does not affect relevance.**
+
+If you want a particular document to be prioritized, ensure the filename or content contains the correct date.
+
+### Error Handling Improvements
+
+- The backend robustly parses the `DOCUMENT_RECENCY_PERIOD_DAYS`

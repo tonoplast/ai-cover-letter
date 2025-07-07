@@ -1,0 +1,28 @@
+# Image Extraction Dependencies
+# Install these packages to enable image extraction from PDFs
+
+# Core image extraction
+PyMuPDF==1.23.8  # For extracting images from PDFs
+Pillow==10.1.0   # For image processing
+
+# OCR (Optical Character Recognition)
+pytesseract==0.3.10  # Python wrapper for Tesseract OCR
+
+# Vision analysis (optional)
+opencv-python==4.8.1.78  # For computer vision analysis
+numpy==1.24.3  # Required by OpenCV
+
+# Note: You also need to install Tesseract OCR on your system:
+# 
+# Windows:
+# 1. Download from: https://github.com/UB-Mannheim/tesseract/wiki
+# 2. Install and add to PATH
+# 
+# macOS:
+# brew install tesseract
+# 
+# Ubuntu/Debian:
+# sudo apt-get install tesseract-ocr
+# 
+# CentOS/RHEL:
+# sudo yum install tesseract 
