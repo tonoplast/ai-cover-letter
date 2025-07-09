@@ -1,10 +1,14 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from app.services.llm_service import LLMService
 from app.services.rag_service import RAGService
 from app.models import Experience, CoverLetter, CompanyResearch, Document
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CoverLetterGenerator:
     def __init__(self, db: Session, llm_service: LLMService):
@@ -13,52 +17,139 @@ class CoverLetterGenerator:
         self.rag_service = RAGService(db)
 
     def generate_cover_letter(self, job_title: str, company_name: str, job_description: str, company_info: Dict[str, Any], user_experiences: List[Experience], writing_style: Dict[str, Any], tone: str = "professional", include_company_research: bool = True, strict_relevance: bool = True) -> str:
-        # --- New logic: Use only most recent CV for current/previous roles and name ---
-        # Get all CVs, most recent first
-        cv_docs = self.db.query(Document).filter_by(document_type="cv").order_by(Document.uploaded_at.desc()).all()
-        most_recent_cv = cv_docs[0] if cv_docs else None
-        user_name = "[Your Name]"
-        current_exp = None
-        previous_exps = []
-        if most_recent_cv:
-            parsed = most_recent_cv.parsed_data if isinstance(most_recent_cv.parsed_data, dict) else {}
-            user_name = parsed.get("personal_info", {}).get("name", user_name)
-            # Format name to title case if all uppercase
-            if user_name.isupper():
-                user_name = user_name.title()
-            experiences = parsed.get("experiences", [])
-            for exp in experiences:
-                duration = exp.get('duration', '').lower()
-                if current_exp is None and ('present' in duration or duration.endswith('-')):
-                    current_exp = exp
-                else:
-                    previous_exps.append(exp)
-        # Use other CVs and cover letters for additional experience/context
-        additional_exps = []
-        for doc in cv_docs[1:]:
-            parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
-            additional_exps.extend(parsed.get("experiences", []))
-        # Add from cover letters (documents table, not generated)
-        cover_letter_docs = self.db.query(Document).filter_by(document_type="cover_letter").all()
-        for doc in cover_letter_docs:
-            parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
-            additional_exps.extend(parsed.get("experiences", []))
-        # Format experience text for prompt
+        """Generate a cover letter with improved accuracy and consistency."""
+        try:
+            # Validate inputs
+            if not job_title or not company_name:
+                raise ValueError("Job title and company name are required")
+            
+            # Get user information and experiences
+            user_info = self._extract_user_info()
+            experiences_text = self._format_experiences(user_info['experiences'])
+            
+            # Build the consolidated prompt
+            prompt = self._build_consolidated_prompt(
+                job_title=job_title,
+                company_name=company_name,
+                job_description=job_description,
+                company_info=company_info,
+                user_name=user_info['name'],
+                experiences_text=experiences_text,
+                writing_style=writing_style,
+                tone=tone,
+                include_company_research=include_company_research
+            )
+            
+            # Enhance with RAG context
+            enhanced_prompt = self.rag_service.enhance_cover_letter_prompt(prompt, job_title, job_description, company_name)
+            
+            # Generate content
+            generated_content = self.llm.generate_text(enhanced_prompt, max_tokens=800, temperature=0.7)
+            
+            if not generated_content:
+                return self._generate_fallback_cover_letter(job_title, company_name, job_description, user_experiences, tone, user_info['name'])
+            
+            # Post-process and validate
+            processed_content = self._post_process_content(generated_content, user_info['name'], company_name, job_title)
+            
+            # Validate output quality
+            if not self._validate_cover_letter_quality(processed_content, company_name, job_title):
+                logger.warning("Generated cover letter failed quality validation")
+                return self._generate_fallback_cover_letter(job_title, company_name, job_description, user_experiences, tone, user_info['name'])
+            
+            return processed_content
+            
+        except Exception as e:
+            logger.error(f"Error generating cover letter: {str(e)}")
+            return self._generate_fallback_cover_letter(job_title, company_name, job_description, user_experiences, tone, "[Your Name]")
+    def _extract_user_info(self) -> Dict[str, Any]:
+        """Extract user information from the most recent CV and other documents."""
+        try:
+            # Get all CVs, most recent first
+            cv_docs = self.db.query(Document).filter_by(document_type="cv").order_by(Document.uploaded_at.desc()).all()
+            most_recent_cv = cv_docs[0] if cv_docs else None
+            
+            user_name = "[Your Name]"
+            current_exp = None
+            previous_exps = []
+            additional_exps = []
+            
+            if most_recent_cv:
+                parsed = most_recent_cv.parsed_data if isinstance(most_recent_cv.parsed_data, dict) else {}
+                user_name = parsed.get("personal_info", {}).get("name", user_name)
+                
+                # Format name properly
+                if user_name and user_name != "[Your Name]":
+                    if user_name.isupper():
+                        user_name = user_name.title()
+                    elif user_name.islower():
+                        user_name = user_name.title()
+                
+                # Extract experiences from most recent CV
+                experiences = parsed.get("experiences", [])
+                for exp in experiences:
+                    duration = exp.get('duration', '').lower()
+                    if current_exp is None and ('present' in duration or duration.endswith('-')):
+                        current_exp = exp
+                    else:
+                        previous_exps.append(exp)
+            
+            # Use other CVs and cover letters for additional experience/context
+            for doc in cv_docs[1:]:
+                parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
+                additional_exps.extend(parsed.get("experiences", []))
+            
+            # Add from cover letters (documents table, not generated)
+            cover_letter_docs = self.db.query(Document).filter_by(document_type="cover_letter").all()
+            for doc in cover_letter_docs:
+                parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
+                additional_exps.extend(parsed.get("experiences", []))
+            
+            return {
+                'name': user_name,
+                'experiences': {
+                    'current': current_exp,
+                    'previous': previous_exps,
+                    'additional': additional_exps
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extracting user info: {str(e)}")
+            return {
+                'name': "[Your Name]",
+                'experiences': {
+                    'current': None,
+                    'previous': [],
+                    'additional': []
+                }
+            }
+    
+    def _format_experiences(self, experiences: Dict[str, Any]) -> str:
+        """Format experiences for the prompt."""
         exp_text = ""
-        # Add explicit application target at the top of experience section
-        exp_text += f"APPLICATION TARGET (repeat for clarity):\n- Job Title: {job_title}\n- Company: {company_name}\n\n"
-        if current_exp:
+        
+        if experiences['current']:
             exp_text += "CURRENT POSITION (from most recent CV):\n"
-            exp_text += f"- {current_exp.get('title', 'Unknown')} at {current_exp.get('company', 'Unknown')} ({current_exp.get('duration', 'Unknown')}): {current_exp.get('description', 'No description available')}\n"
-        if previous_exps:
+            exp = experiences['current']
+            exp_text += f"- {exp.get('title', 'Unknown')} at {exp.get('company', 'Unknown')} ({exp.get('duration', 'Unknown')}): {exp.get('description', 'No description available')}\n\n"
+        
+        if experiences['previous']:
             exp_text += "PREVIOUS POSITIONS (from most recent CV):\n"
-            for exp in previous_exps:
+            for exp in experiences['previous']:
                 exp_text += f"- {exp.get('title', 'Unknown')} at {exp.get('company', 'Unknown')} ({exp.get('duration', 'Unknown')}): {exp.get('description', 'No description available')}\n"
-        if additional_exps:
+            exp_text += "\n"
+        
+        if experiences['additional']:
             exp_text += "ADDITIONAL EXPERIENCE (from other CVs and cover letters):\n"
-            for exp in additional_exps:
+            for exp in experiences['additional']:
                 exp_text += f"- {exp.get('title', 'Unknown')} at {exp.get('company', 'Unknown')} ({exp.get('duration', 'Unknown')}): {exp.get('description', 'No description available')}\n"
-        style_instructions = self._create_writing_style_instructions(writing_style)
+        
+        return exp_text if exp_text else "No specific work experience provided."
+    def _build_consolidated_prompt(self, job_title: str, company_name: str, job_description: str, company_info: Dict[str, Any], user_name: str, experiences_text: str, writing_style: Dict[str, Any], tone: str, include_company_research: bool) -> str:
+        """Build a consolidated, improved prompt for cover letter generation."""
+        
+        # Format company research information
         company_text = ""
         if include_company_research and company_info:
             company_details = []
@@ -73,91 +164,145 @@ class CoverLetterGenerator:
             if company_info.get('description'):
                 company_details.append(f"Description: {company_info['description']}")
             if company_details:
-                company_text = f"Company Research:\n" + "\n".join(company_details) + "\n\n"
+                company_text = f"\nCOMPANY RESEARCH:\n" + "\n".join(company_details) + "\n"
+        
+        # Format writing style instructions
+        style_instructions = self._create_writing_style_instructions(writing_style)
+        
+        # Build the consolidated prompt
         prompt = f"""
-You are an expert career assistant. Write a cover letter for the following job application.
+You are an expert career assistant. Write a professional cover letter for the following job application.
 
 TARGET ROLE & COMPANY:
 - Job Title: {job_title}
 - Company: {company_name}
 
-The cover letter must be written as an application for this specific role and company. Reference the company and role in the opening and closing paragraphs.
-
-APPLICANT NAME:
-- {user_name}
-Sign off the letter with this name.
-
-IMPORTANT FORMATTING:
-- After the closing phrase (e.g., 'Sincerely' or 'Best regards'), insert TWO blank lines before the applicant's name to allow for a signature space. For example:
-
-Sincerely,
-
-
-John Smith
-
-STRICT LANGUAGE RULES:
-- DO NOT use bullet points, dot points, or lists of any kind. Write all content in full, natural, narrative sentences and paragraphs.
-- DO NOT use incomplete sentences or lines ending with ellipses (e.g., '...').
-- All experience, skills, and achievements must be described in flowing, natural language.
-
+JOB DESCRIPTION:
+{job_description}
 {company_text}
 
-{exp_text if exp_text else "No specific work experience provided."}
+APPLICANT NAME: {user_name}
+
+APPLICANT'S EXPERIENCE:
+{experiences_text}
 
 {style_instructions}
 
-INSTRUCTIONS:
-- You MUST write this letter as an application for the role of {job_title} at {company_name}. Do NOT reference any other company as the target employer.
-- The opening and closing paragraphs must mention {company_name} and the {job_title} position.
-- Systematically address the job requirements, matching your experience to each where possible.
-- Use cover letters as examples of how to describe your experience, but do not copy them verbatim.
-- Expand on your fit for the role, showing additional value beyond the job ad.
-- Use present tense for the current position, and past tense for previous roles.
-- Be honest, specific, and professional.
-- Sign off with your actual name: {user_name}.
-- Output only the final cover letter, with no preambles or meta statements.
-- BEFORE OUTPUTTING: Double-check that the letter is addressed to {company_name} for the {job_title} position, and that the sign-off uses the applicant's name.
-"""
-        # Enhance prompt with RAG context
-        enhanced_prompt = self.rag_service.enhance_cover_letter_prompt(prompt, job_title, job_description, company_name)
-        generated_content = self.llm.generate_text(enhanced_prompt, max_tokens=700, temperature=0.7)
-        # Post-process: Remove <think>...</think> tags, bullet points, and incomplete lines
-        if generated_content:
-            import re
-            # Remove <think>...</think> tags
-            generated_content = re.sub(r'<think>[\s\S]*?<\/think>', '', generated_content, flags=re.IGNORECASE)
-            # Remove bullet points (lines starting with -, *, or •)
-            generated_content = re.sub(r'^[\s]*[-*•][\s]+.*$', '', generated_content, flags=re.MULTILINE)
-            # Remove incomplete lines ending with ellipses
-            generated_content = re.sub(r'^.*\.\.\.[\s]*$', '', generated_content, flags=re.MULTILINE)
-            # Look for common sign-offs
-            signoff_pattern = r"(Sincerely,|Best regards,|Kind regards,|Yours sincerely,|Yours faithfully,|Regards,)(\s*)(\n)(\s*)(\w[\w\s\-']+)?"
-            def add_signature_space(match):
-                signoff = match.group(1)
-                rest = match.group(0)[len(signoff):]
-                # Ensure two newlines after signoff
-                return f"{signoff}\n\n\n"
-            # Only add if not already present
-            generated_content = re.sub(signoff_pattern, lambda m: add_signature_space(m), generated_content, flags=re.IGNORECASE)
-            # Ensure user's name is present at the end after the sign-off
-            # Remove trailing whitespace for robust check
-            trimmed = generated_content.rstrip()
-            # If the name is not present in the last 100 chars, append it
-            if user_name not in trimmed[-100:]:
-                # Find the last sign-off
-                signoff_match = re.search(r"(Sincerely,|Best regards,|Kind regards,|Yours sincerely,|Yours faithfully,|Regards,)(\s*)$", trimmed, re.IGNORECASE | re.MULTILINE)
-                if signoff_match:
-                    # Insert name after sign-off
-                    insert_pos = signoff_match.end()
-                    generated_content = trimmed[:insert_pos] + "\n\n" + user_name + "\n" + trimmed[insert_pos:]
-                else:
-                    # If no sign-off found, just append name at the end
-                    generated_content = trimmed + "\n\n" + user_name + "\n"
-        if not generated_content:
-            return self._generate_fallback_cover_letter(job_title, company_name, job_description, user_experiences, tone, user_name)
-        return generated_content
+CRITICAL REQUIREMENTS:
+1. Write this letter as an application for the {job_title} position at {company_name} ONLY
+2. Reference {company_name} and the {job_title} position in the opening and closing paragraphs
+3. Systematically address job requirements, matching experience to each where possible
+4. Use ONLY the provided experience information - do not fabricate or exaggerate
+5. Use present tense for current position, past tense for previous roles
+6. Write in flowing, narrative style - NO bullet points or lists
+7. Include proper signature formatting with two blank lines before the name
+8. Use Australian English spelling and conventions
+9. Ensure the letter is complete and professional
+10. Sign off with the applicant's name: {user_name}
 
-    def _build_prompt(self, job_title, company_name, job_description, company_info, user_experiences, writing_style, tone, include_company_research=True):
+TONE: {tone.title()}
+
+Output ONLY the final cover letter with no preambles or explanations.
+"""
+        return prompt
+    
+    def _post_process_content(self, content: str, user_name: str, company_name: str, job_title: str) -> str:
+        """Post-process the generated content to ensure quality and consistency."""
+        if not content:
+            return content
+        
+        # Remove thinking tags and other unwanted content
+        content = re.sub(r'<think>[\s\S]*?</think>', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'<thinking>[\s\S]*?</thinking>', '', content, flags=re.IGNORECASE)
+        
+        # Remove bullet points and lists
+        content = re.sub(r'^[\s]*[-*•][\s]+.*$', '', content, flags=re.MULTILINE)
+        
+        # Remove incomplete lines ending with ellipses
+        content = re.sub(r'^.*\.\.\.[\s]*$', '', content, flags=re.MULTILINE)
+        
+        # Clean up extra whitespace
+        content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
+        
+        # Ensure proper signature formatting
+        content = self._fix_signature_formatting(content, user_name)
+        
+        # Validate company and job title references
+        content = self._ensure_proper_references(content, company_name, job_title)
+        
+        return content.strip()
+    
+    def _fix_signature_formatting(self, content: str, user_name: str) -> str:
+        """Fix signature formatting to ensure proper spacing and name inclusion."""
+        # Common sign-offs
+        signoff_patterns = [
+            r'(Sincerely,|Best regards,|Kind regards,|Yours sincerely,|Yours faithfully,|Regards,)'
+        ]
+        
+        for pattern in signoff_patterns:
+            # Find sign-off and ensure proper formatting
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                signoff = match.group(1)
+                
+                # Replace with proper formatting
+                replacement = f"{signoff}\n\n\n{user_name}"
+                content = re.sub(
+                    pattern + r'[\s\S]*?$',
+                    replacement,
+                    content,
+                    flags=re.IGNORECASE
+                )
+                return content
+        
+        # If no sign-off found, add one
+        if user_name not in content[-100:]:
+            content = content.rstrip() + f"\n\nSincerely,\n\n\n{user_name}"
+        
+        return content
+    
+    def _ensure_proper_references(self, content: str, company_name: str, job_title: str) -> str:
+        """Ensure the cover letter properly references the target company and job."""
+        # Check if company name is mentioned in the first paragraph
+        paragraphs = content.split('\n\n')
+        if paragraphs and company_name.lower() not in paragraphs[0].lower():
+            # Try to add company reference if missing
+            logger.warning(f"Company name '{company_name}' not found in opening paragraph")
+        
+        # Check if job title is mentioned
+        if job_title.lower() not in content.lower():
+            logger.warning(f"Job title '{job_title}' not found in cover letter")
+        
+        return content
+    
+    def _validate_cover_letter_quality(self, content: str, company_name: str, job_title: str) -> bool:
+        """Validate the quality of the generated cover letter."""
+        if not content or len(content) < 200:
+            return False
+        
+        # Check for required elements
+        checks = [
+            # Must contain company name
+            company_name.lower() in content.lower(),
+            # Must contain job title or similar
+            job_title.lower() in content.lower() or 'position' in content.lower() or 'role' in content.lower(),
+            # Must have proper greeting
+            any(greeting in content.lower() for greeting in ['dear', 'hello', 'greetings']),
+            # Must have proper closing
+            any(closing in content.lower() for closing in ['sincerely', 'regards', 'best']),
+            # Must not contain placeholder text
+            '[your name]' not in content.lower(),
+            # Must not contain bullet points
+            not re.search(r'^[\s]*[-*•][\s]+', content, re.MULTILINE),
+            # Must not be too generic
+            len(set(content.lower().split())) > 50  # At least 50 unique words
+        ]
+        
+        return sum(checks) >= 6  # At least 6 out of 8 checks must pass
+
+    # Removed old _build_prompt method - replaced by _build_consolidated_prompt
+    
+    def _build_prompt_legacy(self, job_title, company_name, job_description, company_info, user_experiences, writing_style, tone, include_company_research=True):
         # Enhanced experience formatting: separate current and previous roles
         current_exp = None
         previous_exps = []
@@ -379,7 +524,9 @@ Best regards,
 {user_name}
 """
 
-    def _build_general_prompt(self, job_title, company_name, job_description, company_info, user_experiences, writing_style, tone, include_company_research=True):
+    # Removed old _build_general_prompt method - replaced by _build_consolidated_prompt
+    
+    def _build_general_prompt_legacy(self, job_title, company_name, job_description, company_info, user_experiences, writing_style, tone, include_company_research=True):
         # Same as _build_prompt but omits strict job requirement matching rules
         if user_experiences and isinstance(user_experiences[0], dict):
             exp_text = "\n".join([

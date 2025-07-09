@@ -20,6 +20,7 @@ An advanced AI-powered system for generating highly personalized, professional c
 - **Professional Export**: Download cover letters as PDF, DOCX, or TXT.
 - **Database Management**: Inspect, selectively delete, and manage all documents and generated content.
 - **Anti-blocking for Scraping**: Configurable delay between website scrapes to avoid IP bans.
+- **Australian English Support**: Automatic Australian spelling and terminology in all LLM outputs (configurable).
 
 ---
 
@@ -80,6 +81,9 @@ OPENAI_MODEL=gpt-4
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ANTHROPIC_MODEL=claude-3-sonnet-20240229
 
+# Australian English (default: enabled)
+USE_AUSTRALIAN_ENGLISH=true
+
 # Company Research APIs (optional)
 TAVILY_API_KEY=tvly-your_tavily_api_key_here  # Recommended: https://tavily.com/
 GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here       # Optional: https://makersuite.google.com/
@@ -129,6 +133,86 @@ uvicorn app.main:app --reload
 ```
 
 Visit [http://localhost:8000/](http://localhost:8000/) in your browser.
+
+---
+
+## WSL (Windows Subsystem for Linux) Setup
+
+If you're working across both Windows and WSL environments, use this setup to maintain separate virtual environments for each platform:
+
+### **Step 1: Create WSL-specific virtual environment**
+```bash
+uv venv .venv-wsl
+```
+
+### **Step 2: Install dependencies**
+```bash
+UV_PROJECT_ENVIRONMENT=.venv-wsl uv sync
+```
+
+### **Step 3: Install uv in WSL (if not already installed)**
+```bash
+# Install uv in WSL
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc  # or restart terminal
+```
+
+### **Step 4: Test the installation**
+```bash
+# Use --host 0.0.0.0 for WSL to be accessible from Windows browser
+UV_PROJECT_ENVIRONMENT=.venv-wsl uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### **Step 5: Make it easier with aliases (optional)**
+Add these to your `~/.bashrc` or `~/.zshrc`:
+```bash
+# Add to ~/.bashrc
+alias uv-wsl="UV_PROJECT_ENVIRONMENT=.venv-wsl uv"
+alias run-app="UV_PROJECT_ENVIRONMENT=.venv-wsl uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+```
+
+Then reload your shell:
+```bash
+source ~/.bashrc
+```
+
+### **Usage going forward:**
+
+**For WSL:**
+```bash
+# Install/update dependencies
+UV_PROJECT_ENVIRONMENT=.venv-wsl uv sync
+
+# Run the app (accessible from Windows browser)
+UV_PROJECT_ENVIRONMENT=.venv-wsl uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Add new dependencies
+UV_PROJECT_ENVIRONMENT=.venv-wsl uv add package_name
+
+# Run any Python script
+UV_PROJECT_ENVIRONMENT=.venv-wsl uv run python script.py
+```
+
+**For Windows:**
+```bash
+# Your existing setup continues to work
+uv sync
+uv run uvicorn app.main:app --reload
+```
+
+**With aliases (after adding to ~/.bashrc):**
+```bash
+# Much simpler commands
+uv-wsl sync
+uv-wsl run python script.py
+run-app  # Starts the server
+```
+
+**Benefits:**
+- `.venv` - Windows environment (unchanged)
+- `.venv-wsl` - WSL environment (Linux-compatible)
+- Both work independently without conflicts
+- Seamless switching between Windows and WSL
 
 ---
 

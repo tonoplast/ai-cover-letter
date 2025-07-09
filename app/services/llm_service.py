@@ -1,9 +1,21 @@
 import os
 import requests
 import json
+import logging
+import time
 from dotenv import load_dotenv
 from typing import Dict, Any, Optional, List
 from enum import Enum
+from requests.exceptions import ConnectionError, Timeout, HTTPError, RequestException
+from app.exceptions import (
+    LLMServiceError,
+    LLMConnectionError,
+    LLMTimeoutError,
+    LLMRateLimitError,
+    ConfigurationError
+)
+
+logger = logging.getLogger(__name__)
 
 class LLMProvider(Enum):
     OLLAMA = "ollama"
@@ -12,33 +24,46 @@ class LLMProvider(Enum):
     GOOGLE = "google"
 
 class LLMService:
-    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None, use_australian_english: bool = True):
         self.provider = provider
         self.model = model
+        self.use_australian_english = use_australian_english
         self._load_config()
     
     def _load_config(self):
         """Load configuration from environment variables"""
-        load_dotenv(override=True)  # Reload .env file
-        
-        # Determine provider and model
-        if self.provider:
-            self.current_provider = LLMProvider(self.provider)
-        else:
-            # Default provider from env or fallback to Ollama
-            provider_str = os.getenv("LLM_PROVIDER", "ollama").lower()
-            self.current_provider = LLMProvider(provider_str)
-        
-        if self.model:
-            self.current_model = self.model
-        else:
-            # Get model for current provider
-            self.current_model = self._get_default_model()
-        
-        # Load provider-specific configuration
-        self._load_provider_config()
-        
-        print(f"LLM Service configured with: {self.current_provider.value}, model: {self.current_model}")
+        try:
+            load_dotenv(override=True)  # Reload .env file
+            
+            # Determine provider and model
+            if self.provider:
+                try:
+                    self.current_provider = LLMProvider(self.provider)
+                except ValueError:
+                    raise ConfigurationError(f"Invalid LLM provider: {self.provider}")
+            else:
+                # Default provider from env or fallback to Ollama
+                provider_str = os.getenv("LLM_PROVIDER", "ollama").lower()
+                try:
+                    self.current_provider = LLMProvider(provider_str)
+                except ValueError:
+                    logger.warning(f"Invalid provider '{provider_str}' in config, falling back to Ollama")
+                    self.current_provider = LLMProvider.OLLAMA
+            
+            if self.model:
+                self.current_model = self.model
+            else:
+                # Get model for current provider
+                self.current_model = self._get_default_model()
+            
+            # Load provider-specific configuration
+            self._load_provider_config()
+            
+            logger.info(f"LLM Service configured with: {self.current_provider.value}, model: {self.current_model}")
+            
+        except Exception as e:
+            logger.error(f"Error loading LLM configuration: {str(e)}")
+            raise ConfigurationError(f"Failed to load LLM configuration: {str(e)}")
     
     def _get_default_model(self) -> str:
         """Get default model for current provider"""
@@ -54,53 +79,139 @@ class LLMService:
     
     def _load_provider_config(self):
         """Load provider-specific configuration"""
-        if self.current_provider == LLMProvider.OLLAMA:
-            self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-            self.api_key = None
-            # Ollama can take longer for local models
-            self.timeout = int(os.getenv("OLLAMA_TIMEOUT", "120"))  # 2 minutes default
-        elif self.current_provider == LLMProvider.OPENAI:
-            self.base_url = "https://api.openai.com/v1"
-            self.api_key = os.getenv("OPENAI_API_KEY")
-            if not self.api_key:
-                print("Warning: OPENAI_API_KEY not found in environment")
-            # OpenAI is usually faster
-            self.timeout = int(os.getenv("OPENAI_TIMEOUT", "60"))  # 1 minute default
-        elif self.current_provider == LLMProvider.ANTHROPIC:
-            self.base_url = "https://api.anthropic.com/v1"
-            self.api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not self.api_key:
-                print("Warning: ANTHROPIC_API_KEY not found in environment")
-            # Anthropic can take longer for complex models
-            self.timeout = int(os.getenv("ANTHROPIC_TIMEOUT", "90"))  # 1.5 minutes default
-        elif self.current_provider == LLMProvider.GOOGLE:
-            self.base_url = "https://generativelanguage.googleapis.com/v1beta"
-            self.api_key = os.getenv("GOOGLE_GEMINI_API_KEY")
-            if not self.api_key:
-                print("Warning: GOOGLE_GEMINI_API_KEY not found in environment")
-            # Google Gemini is usually fast
-            self.timeout = int(os.getenv("GOOGLE_TIMEOUT", "60"))  # 1 minute default
+        try:
+            if self.current_provider == LLMProvider.OLLAMA:
+                self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+                self.api_key = None
+                # Ollama can take longer for local models
+                timeout_str = os.getenv("OLLAMA_TIMEOUT", "120")
+                try:
+                    self.timeout = int(timeout_str)
+                except ValueError:
+                    logger.warning(f"Invalid OLLAMA_TIMEOUT value: {timeout_str}, using default 120")
+                    self.timeout = 120
+                    
+            elif self.current_provider == LLMProvider.OPENAI:
+                self.base_url = "https://api.openai.com/v1"
+                self.api_key = os.getenv("OPENAI_API_KEY")
+                if not self.api_key:
+                    logger.warning("OPENAI_API_KEY not found in environment")
+                timeout_str = os.getenv("OPENAI_TIMEOUT", "60")
+                try:
+                    self.timeout = int(timeout_str)
+                except ValueError:
+                    logger.warning(f"Invalid OPENAI_TIMEOUT value: {timeout_str}, using default 60")
+                    self.timeout = 60
+                    
+            elif self.current_provider == LLMProvider.ANTHROPIC:
+                self.base_url = "https://api.anthropic.com/v1"
+                self.api_key = os.getenv("ANTHROPIC_API_KEY")
+                if not self.api_key:
+                    logger.warning("ANTHROPIC_API_KEY not found in environment")
+                timeout_str = os.getenv("ANTHROPIC_TIMEOUT", "90")
+                try:
+                    self.timeout = int(timeout_str)
+                except ValueError:
+                    logger.warning(f"Invalid ANTHROPIC_TIMEOUT value: {timeout_str}, using default 90")
+                    self.timeout = 90
+                    
+            elif self.current_provider == LLMProvider.GOOGLE:
+                self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+                self.api_key = os.getenv("GOOGLE_GEMINI_API_KEY")
+                if not self.api_key:
+                    logger.warning("GOOGLE_GEMINI_API_KEY not found in environment")
+                timeout_str = os.getenv("GOOGLE_TIMEOUT", "60")
+                try:
+                    self.timeout = int(timeout_str)
+                except ValueError:
+                    logger.warning(f"Invalid GOOGLE_TIMEOUT value: {timeout_str}, using default 60")
+                    self.timeout = 60
+            
+            # Check if Australian English should be used globally
+            use_australian_env = os.getenv("USE_AUSTRALIAN_ENGLISH", "true").lower()
+            if use_australian_env in ("false", "0", "no", "off"):
+                self.use_australian_english = False
+            elif not hasattr(self, 'use_australian_english'):
+                self.use_australian_english = True
+                    
+        except Exception as e:
+            logger.error(f"Error loading provider config: {str(e)}")
+            raise ConfigurationError(f"Failed to load provider configuration: {str(e)}")
     
     def refresh_config(self):
         """Refresh configuration from environment variables"""
         self._load_config()
 
-    def generate_text(self, prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> Optional[str]:
-        """Generate text using the configured LLM provider"""
-        # Refresh config before each request to pick up .env changes
-        self._load_config()
+    def _add_australian_english_instructions(self, prompt: str) -> str:
+        """Add Australian English instructions to the prompt"""
+        australian_instructions = """IMPORTANT: Use Australian English throughout your response. This includes:
+- Australian spelling (e.g., "colour" not "color", "centre" not "center", "realise" not "realize")
+- Australian terminology (e.g., "mobile" not "cell phone", "lift" not "elevator")
+- Australian expressions and phrases where appropriate
+- Australian business language conventions
+- Use "organisation" not "organization"
+- Use "analyse" not "analyze"
+- Use "favour" not "favor"
+- Use "honour" not "honor"
+- Use "licence" (noun) and "license" (verb)
+- Use "practise" (verb) and "practice" (noun)
+
+"""
+        return australian_instructions + prompt
+
+    def generate_text(self, prompt: str, max_tokens: int = 512, temperature: float = 0.7, retry_count: int = 3) -> Optional[str]:
+        """Generate text using the configured LLM provider with retry logic"""
+        if not prompt or not prompt.strip():
+            raise LLMServiceError("Prompt cannot be empty")
+            
+        if max_tokens <= 0 or max_tokens > 4096:
+            raise LLMServiceError("max_tokens must be between 1 and 4096")
+            
+        if temperature < 0 or temperature > 2:
+            raise LLMServiceError("temperature must be between 0 and 2")
         
-        if self.current_provider == LLMProvider.OLLAMA:
-            return self._generate_ollama(prompt, max_tokens, temperature)
-        elif self.current_provider == LLMProvider.OPENAI:
-            return self._generate_openai(prompt, max_tokens, temperature)
-        elif self.current_provider == LLMProvider.ANTHROPIC:
-            return self._generate_anthropic(prompt, max_tokens, temperature)
-        elif self.current_provider == LLMProvider.GOOGLE:
-            return self._generate_google(prompt, max_tokens, temperature)
+        # Add Australian English instructions to all prompts (if enabled)
+        if self.use_australian_english:
+            australian_english_prompt = self._add_australian_english_instructions(prompt)
         else:
-            print(f"Unknown provider: {self.current_provider}")
-            return None
+            australian_english_prompt = prompt
+        
+        for attempt in range(retry_count):
+            try:
+                if self.current_provider == LLMProvider.OLLAMA:
+                    return self._generate_ollama(australian_english_prompt, max_tokens, temperature)
+                elif self.current_provider == LLMProvider.OPENAI:
+                    return self._generate_openai(australian_english_prompt, max_tokens, temperature)
+                elif self.current_provider == LLMProvider.ANTHROPIC:
+                    return self._generate_anthropic(australian_english_prompt, max_tokens, temperature)
+                elif self.current_provider == LLMProvider.GOOGLE:
+                    return self._generate_google(australian_english_prompt, max_tokens, temperature)
+                else:
+                    raise LLMServiceError(f"Unknown provider: {self.current_provider}")
+                    
+            except (LLMConnectionError, LLMTimeoutError) as e:
+                if attempt < retry_count - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    logger.warning(f"LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {str(e)}")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"LLM request failed after {retry_count} attempts: {str(e)}")
+                    raise
+            except LLMRateLimitError as e:
+                if attempt < retry_count - 1:
+                    wait_time = 60  # Wait longer for rate limits
+                    logger.warning(f"Rate limit hit (attempt {attempt + 1}), waiting {wait_time}s: {str(e)}")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"Rate limit exceeded after {retry_count} attempts: {str(e)}")
+                    raise
+            except Exception as e:
+                logger.error(f"Unexpected error in LLM generation: {str(e)}")
+                raise LLMServiceError(f"LLM generation failed: {str(e)}")
+        
+        return None
 
     def _generate_ollama(self, prompt: str, max_tokens: int, temperature: float) -> Optional[str]:
         """Generate text using Ollama API"""
@@ -114,26 +225,33 @@ class LLMService:
                 "temperature": temperature
             }
         }
+        
         try:
             response = requests.post(url, json=payload, timeout=self.timeout)
-            if response.ok:
+            
+            if response.status_code == 200:
                 data = response.json()
                 return data.get("response", "")
+            elif response.status_code == 404:
+                raise LLMServiceError(f"Model '{self.current_model}' not found. Please ensure it's installed in Ollama.")
+            elif response.status_code >= 500:
+                raise LLMServiceError(f"Ollama server error: {response.status_code} - {response.text}")
             else:
-                print(f"Ollama API error: {response.status_code} - {response.text}")
-                print(f"Make sure Ollama is running at {self.base_url} with model {self.current_model}")
-        except requests.exceptions.ConnectionError:
-            print(f"Could not connect to Ollama at {self.base_url}")
-            print("Please make sure Ollama is running: ollama serve")
+                raise LLMServiceError(f"Ollama API error: {response.status_code} - {response.text}")
+                
+        except ConnectionError as e:
+            raise LLMConnectionError(f"Could not connect to Ollama at {self.base_url}. Please ensure Ollama is running.")
+        except Timeout as e:
+            raise LLMTimeoutError(f"Ollama request timed out after {self.timeout} seconds")
+        except RequestException as e:
+            raise LLMServiceError(f"Ollama request failed: {str(e)}")
         except Exception as e:
-            print(f"Ollama generation error: {e}")
-        return None
+            raise LLMServiceError(f"Unexpected Ollama error: {str(e)}")
 
     def _generate_openai(self, prompt: str, max_tokens: int, temperature: float) -> Optional[str]:
         """Generate text using OpenAI API"""
         if not self.api_key:
-            print("OpenAI API key not configured")
-            return None
+            raise LLMServiceError("OpenAI API key not configured")
         
         url = f"{self.base_url}/chat/completions"
         headers = {
@@ -151,20 +269,32 @@ class LLMService:
         
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
-            if response.ok:
+            
+            if response.status_code == 200:
                 data = response.json()
                 return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            elif response.status_code == 401:
+                raise LLMServiceError("OpenAI API key is invalid or missing")
+            elif response.status_code == 429:
+                raise LLMRateLimitError("OpenAI rate limit exceeded")
+            elif response.status_code >= 500:
+                raise LLMServiceError(f"OpenAI server error: {response.status_code} - {response.text}")
             else:
-                print(f"OpenAI API error: {response.status_code} - {response.text}")
+                raise LLMServiceError(f"OpenAI API error: {response.status_code} - {response.text}")
+                
+        except ConnectionError as e:
+            raise LLMConnectionError("Could not connect to OpenAI API")
+        except Timeout as e:
+            raise LLMTimeoutError(f"OpenAI request timed out after {self.timeout} seconds")
+        except RequestException as e:
+            raise LLMServiceError(f"OpenAI request failed: {str(e)}")
         except Exception as e:
-            print(f"OpenAI generation error: {e}")
-        return None
+            raise LLMServiceError(f"Unexpected OpenAI error: {str(e)}")
 
     def _generate_anthropic(self, prompt: str, max_tokens: int, temperature: float) -> Optional[str]:
         """Generate text using Anthropic Claude API"""
         if not self.api_key:
-            print("Anthropic API key not configured")
-            return None
+            raise LLMServiceError("Anthropic API key not configured")
         
         url = f"{self.base_url}/messages"
         headers = {
@@ -183,20 +313,32 @@ class LLMService:
         
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
-            if response.ok:
+            
+            if response.status_code == 200:
                 data = response.json()
                 return data.get("content", [{}])[0].get("text", "")
+            elif response.status_code == 401:
+                raise LLMServiceError("Anthropic API key is invalid or missing")
+            elif response.status_code == 429:
+                raise LLMRateLimitError("Anthropic rate limit exceeded")
+            elif response.status_code >= 500:
+                raise LLMServiceError(f"Anthropic server error: {response.status_code} - {response.text}")
             else:
-                print(f"Anthropic API error: {response.status_code} - {response.text}")
+                raise LLMServiceError(f"Anthropic API error: {response.status_code} - {response.text}")
+                
+        except ConnectionError as e:
+            raise LLMConnectionError("Could not connect to Anthropic API")
+        except Timeout as e:
+            raise LLMTimeoutError(f"Anthropic request timed out after {self.timeout} seconds")
+        except RequestException as e:
+            raise LLMServiceError(f"Anthropic request failed: {str(e)}")
         except Exception as e:
-            print(f"Anthropic generation error: {e}")
-        return None
+            raise LLMServiceError(f"Unexpected Anthropic error: {str(e)}")
 
     def _generate_google(self, prompt: str, max_tokens: int, temperature: float) -> Optional[str]:
         """Generate text using Google Gemini API"""
         if not self.api_key:
-            print("Google API key not configured")
-            return None
+            raise LLMServiceError("Google API key not configured")
         
         url = f"{self.base_url}/models/{self.current_model}:generateContent"
         headers = {
@@ -220,14 +362,27 @@ class LLMService:
         
         try:
             response = requests.post(f"{url}?key={self.api_key}", headers=headers, json=payload, timeout=self.timeout)
-            if response.ok:
+            
+            if response.status_code == 200:
                 data = response.json()
                 return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            elif response.status_code == 401:
+                raise LLMServiceError("Google API key is invalid or missing")
+            elif response.status_code == 429:
+                raise LLMRateLimitError("Google API rate limit exceeded")
+            elif response.status_code >= 500:
+                raise LLMServiceError(f"Google server error: {response.status_code} - {response.text}")
             else:
-                print(f"Google Gemini API error: {response.status_code} - {response.text}")
+                raise LLMServiceError(f"Google API error: {response.status_code} - {response.text}")
+                
+        except ConnectionError as e:
+            raise LLMConnectionError("Could not connect to Google API")
+        except Timeout as e:
+            raise LLMTimeoutError(f"Google request timed out after {self.timeout} seconds")
+        except RequestException as e:
+            raise LLMServiceError(f"Google request failed: {str(e)}")
         except Exception as e:
-            print(f"Google Gemini generation error: {e}")
-        return None
+            raise LLMServiceError(f"Unexpected Google error: {str(e)}")
 
     def get_default_vision_model(self) -> Optional[str]:
         """Return the default vision model for the current provider, if available."""
@@ -458,13 +613,15 @@ class LLMService:
         }
         
         try:
-            # Try a simple generation
-            test_response = self.generate_text("Hello", max_tokens=10, temperature=0.1)
+            # Try a simple generation with minimal retry
+            test_response = self.generate_text("Hello", max_tokens=10, temperature=0.1, retry_count=1)
             if test_response:
                 result["connected"] = True
             else:
                 result["error"] = "No response from provider"
-        except Exception as e:
+        except LLMServiceError as e:
             result["error"] = str(e)
+        except Exception as e:
+            result["error"] = f"Unexpected error: {str(e)}"
         
-        return result 
+        return result

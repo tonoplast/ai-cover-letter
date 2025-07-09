@@ -10,6 +10,15 @@ from app.services.llm_service import LLMService
 from app.services.cover_letter_gen import CoverLetterGenerator
 from app.services.document_export import DocumentExporter
 from app.services.rag_service import RAGService
+from app.validators import InputValidator
+from app.exceptions import (
+    ValidationError,
+    LLMServiceError,
+    CompanyResearchError,
+    DocumentParsingError,
+    RAGServiceError,
+    FileProcessingError
+)
 from pathlib import Path
 import shutil
 import os
@@ -25,6 +34,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
 import logging
+
+logger = logging.getLogger(__name__)
 
 class ChatRequest(BaseModel):
     cover_letter_id: int
@@ -50,6 +61,7 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @router.get("/api")
 def read_root():
@@ -66,53 +78,103 @@ def upload_document(
     document_type: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    from app.services.filename_parser import FilenameParser
-    
-    # Parse filename for date and document type information
-    filename_info = FilenameParser.parse_filename(file.filename or "unknown_file")
-    
-    # Use filename document type if available and valid, otherwise use provided type
-    detected_document_type = filename_info.get('document_type')
-    if detected_document_type and detected_document_type in ['cv', 'cover_letter', 'linkedin', 'other']:
-        final_document_type = detected_document_type
-    else:
-        final_document_type = document_type
-    
-    file_path = UPLOAD_DIR / (file.filename or "unknown_file")
+    """Upload and parse a document with comprehensive validation."""
     try:
-        logging.info(f"Saving uploaded file to: {file_path.resolve()}")
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        logging.info(f"File saved successfully: {file_path.resolve()}")
+        # Validate file upload
+        InputValidator.validate_file_upload(file)
+        
+        # Validate document type
+        document_type = InputValidator.validate_document_type(document_type)
+        
+        # Parse filename for date and document type information
+        from app.services.filename_parser import FilenameParser
+        filename_info = FilenameParser.parse_filename(file.filename or "unknown_file")
+        
+        # Use filename document type if available and valid, otherwise use provided type
+        detected_document_type = filename_info.get('document_type')
+        if detected_document_type and detected_document_type in ['cv', 'cover_letter', 'linkedin', 'other']:
+            final_document_type = detected_document_type
+        else:
+            final_document_type = document_type
+        
+        # Sanitize filename
+        safe_filename = InputValidator.sanitize_filename(file.filename)
+        file_path = UPLOAD_DIR / safe_filename
+        
+        # Ensure unique filename
+        counter = 1
+        while file_path.exists():
+            name, ext = os.path.splitext(safe_filename)
+            file_path = UPLOAD_DIR / f"{name}_{counter}{ext}"
+            counter += 1
+        
+        # Save file
+        try:
+            logger.info(f"Saving uploaded file to: {file_path.resolve()}")
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            logger.info(f"File saved successfully: {file_path.resolve()}")
+        except Exception as e:
+            logger.error(f"Error saving file to {file_path.resolve()}: {e}")
+            raise FileProcessingError(f"Failed to save file: {str(e)}")
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileProcessingError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        logging.error(f"Error saving file to {file_path.resolve()}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-    parsed = document_parser.parse_document(str(file_path), final_document_type)
+        logger.error(f"Unexpected error in upload_document: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+    # Parse document
+    try:
+        parsed = document_parser.parse_document(str(file_path), final_document_type)
+        
+        if not parsed.get("content"):
+            raise DocumentParsingError("No content could be extracted from the document")
+        
+    except Exception as e:
+        logger.error(f"Error parsing document: {e}")
+        # Clean up uploaded file on parsing error
+        try:
+            os.remove(file_path)
+        except:
+            pass
+        raise HTTPException(status_code=422, detail=f"Failed to parse document: {str(e)}")
     
     # Calculate document weight using RAG service (includes filename date weighting)
-    rag_service = RAGService(db)
-    
-    # Create document record
-    doc = Document(
-        filename=file.filename,
-        file_path=str(file_path),
-        document_type=final_document_type,
-        content=parsed["content"],
-        parsed_data=parsed["parsed_data"],
-        weight=1.0  # Will be updated after creation
-    )
-    
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
-    
-    # Update weight based on filename date and document type
-    calculated_weight = rag_service.calculate_document_weight(doc)
-    db.query(Document).filter(Document.id == doc.id).update({"weight": calculated_weight})
-    db.commit()
-    db.refresh(doc)
-    
-    return doc
+    try:
+        rag_service = RAGService(db)
+        
+        # Create document record
+        doc = Document(
+            filename=safe_filename,
+            file_path=str(file_path),
+            document_type=final_document_type,
+            content=parsed["content"],
+            parsed_data=parsed["parsed_data"],
+            weight=1.0  # Will be updated after creation
+        )
+        
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
+        
+        # Update weight based on filename date and document type
+        calculated_weight = rag_service.calculate_document_weight(doc)
+        db.query(Document).filter(Document.id == doc.id).update({"weight": calculated_weight})
+        db.commit()
+        db.refresh(doc)
+        
+        return doc
+        
+    except Exception as e:
+        logger.error(f"Error creating document record: {e}")
+        # Clean up uploaded file on database error
+        try:
+            os.remove(file_path)
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to create document record: {str(e)}")
 
 @router.post("/import-linkedin", response_model=DocumentResponse)
 def import_linkedin(
@@ -121,8 +183,31 @@ def import_linkedin(
     profile_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    scraper = LinkedInScraper(email, password)
-    profile_data = scraper.scrape_profile(profile_url) if profile_url else scraper.scrape_profile()
+    try:
+        # Validate email
+        if not email or not InputValidator.EMAIL_PATTERN.match(email):
+            raise ValidationError("Invalid email format")
+        
+        # Validate password
+        if not password or len(password) < 6:
+            raise ValidationError("Password must be at least 6 characters")
+        
+        # Validate profile URL if provided
+        if profile_url:
+            profile_url = InputValidator.validate_url(profile_url, "LinkedIn profile URL")
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Validation error in import_linkedin: {e}")
+        raise HTTPException(status_code=500, detail="Validation failed")
+    
+    try:
+        scraper = LinkedInScraper(email, password)
+        profile_data = scraper.scrape_profile(profile_url) if profile_url else scraper.scrape_profile()
+    except Exception as e:
+        logger.error(f"LinkedIn scraping error: {e}")
+        raise HTTPException(status_code=500, detail="LinkedIn scraping failed")
     # Calculate document weight for LinkedIn
     rag_service = RAGService(db)
     document_weight = rag_service.get_document_type_weight("linkedin")
@@ -145,9 +230,40 @@ def company_research(
     req: CompanyResearchRequest,
     db: Session = Depends(get_db)
 ):
-    info = company_research_service.search_company(req.company_name, req.provider)
-    if not info:
-        raise HTTPException(status_code=404, detail="Company not found")
+    try:
+        # Validate company name
+        company_name = InputValidator.validate_company_name(req.company_name)
+        
+        # Validate provider if provided
+        provider = None
+        if hasattr(req, 'provider') and req.provider:
+            provider = InputValidator.validate_text_input(
+                req.provider, 
+                "Research provider", 
+                min_length=1, 
+                max_length=50
+            )
+        
+        # Validate country if provided
+        country = None
+        if hasattr(req, 'country') and req.country:
+            country = InputValidator.validate_country(req.country)
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Validation error in company_research: {e}")
+        raise HTTPException(status_code=500, detail="Validation failed")
+    
+    try:
+        info = company_research_service.search_company(company_name, provider, country)
+        if not info:
+            raise CompanyResearchError("Company not found")
+    except CompanyResearchError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Company research error: {e}")
+        raise HTTPException(status_code=500, detail="Company research failed")
     research = CompanyResearch(
         company_name=info["company_name"],
         website=info.get("website"),
@@ -189,32 +305,66 @@ def get_llm_providers():
 @router.get("/llm-models/{provider}")
 def get_llm_models(provider: str):
     """Get available models for a specific LLM provider (text and vision)."""
-    llm_service = LLMService(provider=provider)
-    models = llm_service.list_models()
-    default_vision_model = llm_service.get_default_vision_model()
-    return {
-        "provider": provider,
-        "models": models or [],
-        "current_model": llm_service.current_model,
-        "default_vision_model": default_vision_model
-    }
+    try:
+        # Validate provider parameter
+        provider_info = InputValidator.validate_provider_and_model(provider, None)
+        validated_provider = provider_info['provider']
+        
+        llm_service = LLMService(provider=validated_provider)
+        models = llm_service.list_models()
+        default_vision_model = llm_service.get_default_vision_model()
+        
+        return {
+            "provider": validated_provider,
+            "models": models or [],
+            "current_model": llm_service.current_model,
+            "default_vision_model": default_vision_model
+        }
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting LLM models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve LLM models")
 
 @router.get("/vision-models-available/{provider}")
 def check_vision_models_available(provider: str):
     """Check if any vision models are actually available for a specific provider."""
-    llm_service = LLMService(provider=provider)
-    has_vision = llm_service.has_vision_models()
-    return {
-        "provider": provider,
-        "has_vision_models": has_vision
-    }
+    try:
+        # Validate provider parameter
+        provider_info = InputValidator.validate_provider_and_model(provider, None)
+        validated_provider = provider_info['provider']
+        
+        llm_service = LLMService(provider=validated_provider)
+        has_vision = llm_service.has_vision_models()
+        
+        return {
+            "provider": validated_provider,
+            "has_vision_models": has_vision
+        }
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error checking vision models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to check vision models availability")
 
 @router.post("/test-llm-connection")
 def test_llm_connection(provider: str, model: str):
     """Test connection to a specific LLM provider and model"""
-    llm_service = LLMService(provider=provider, model=model)
-    result = llm_service.test_connection()
-    return result
+    try:
+        # Validate provider and model parameters
+        provider_info = InputValidator.validate_provider_and_model(provider, model)
+        
+        llm_service = LLMService(provider=provider_info['provider'], model=provider_info['model'])
+        result = llm_service.test_connection()
+        return result
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"LLM connection test error: {e}")
+        raise HTTPException(status_code=500, detail="LLM connection test failed")
 
 @router.get("/test-tavily")
 def test_tavily_api():
@@ -374,6 +524,47 @@ def generate_cover_letter(
     db: Session = Depends(get_db)
 ):
     """Generate a single cover letter using the same RAG+LLM workflow as batch generation, but only the most recent CV is used for the main experience block (others for augmentation)."""
+    try:
+        # Comprehensive input validation
+        job_title = InputValidator.validate_job_title(req.job_title)
+        
+        # Validate job description if provided
+        job_description = ""
+        if hasattr(req, 'job_description') and req.job_description:
+            job_description = InputValidator.validate_job_description(req.job_description)
+        
+        # Validate tone
+        tone = InputValidator.validate_tone(getattr(req, 'tone', 'professional'))
+        
+        # Validate company name if provided
+        company_name = None
+        if hasattr(req, 'company_name') and req.company_name:
+            company_name = InputValidator.validate_company_name(req.company_name)
+        
+        # Validate provider and model parameters
+        provider_info = InputValidator.validate_provider_and_model(
+            getattr(req, 'llm_provider', None),
+            getattr(req, 'llm_model', None)
+        )
+        
+        # Validate research provider if provided
+        research_provider = None
+        if hasattr(req, 'research_provider') and req.research_provider:
+            research_provider = InputValidator.validate_text_input(
+                req.research_provider, 
+                "Research provider", 
+                min_length=1, 
+                max_length=50
+            )
+        
+        # Validate country if provided
+        research_country = InputValidator.validate_country(getattr(req, 'research_country', None))
+        
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Validation error in generate_cover_letter: {e}")
+        raise HTTPException(status_code=500, detail="Validation failed")
     # --- Gather all CVs and cover letters ---
     cv_docs = db.query(Document).filter(Document.document_type == "cv").order_by(Document.uploaded_at.desc()).all()
     most_recent_cv = cv_docs[0] if cv_docs else None

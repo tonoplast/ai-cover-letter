@@ -1,15 +1,20 @@
 import os
 import time
 import requests
+import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import json
 from dataclasses import dataclass
 from enum import Enum
 from dotenv import load_dotenv
+from app.services.cache_service import company_research_cache
+from app.exceptions import CompanyResearchError, CompanyResearchTimeoutError, CompanyResearchRateLimitError
 
 # Load environment variables
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 try:
     from duckduckgo_search import DDGS
@@ -57,11 +62,23 @@ class RateLimiter:
     
     def record_request(self):
         self.requests.append(datetime.now())
+    
+    def wait_time(self) -> float:
+        """Return time to wait before next request"""
+        if self.can_make_request():
+            return 0.0
+        
+        if not self.requests:
+            return 0.0
+        
+        oldest_request = min(self.requests)
+        return (oldest_request + timedelta(seconds=self.time_window) - datetime.now()).total_seconds()
 
 class CompanyResearchService:
     def __init__(self):
         self.providers = {}
         self.rate_limiters = {}
+        self.cache = company_research_cache
         self.setup_providers()
     
     def setup_providers(self):
@@ -649,8 +666,22 @@ class CompanyResearchService:
             'location': 'Unknown',
             'provider_used': 'manual',
             'searched_at': datetime.now().isoformat(),
-            'research_data': {'note': 'Manual fallback - no external search performed'}
+            'research_data': {'note': 'Manual fallback - no external search performed'},
+            'cached': False
         }
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics for monitoring"""
+        return self.cache.get_stats()
+    
+    def clear_cache(self) -> None:
+        """Clear the company research cache"""
+        self.cache.clear()
+        logger.info("Company research cache cleared")
+    
+    def cleanup_cache(self) -> int:
+        """Remove expired entries from cache"""
+        return self.cache.cleanup()
     
     def _extract_company_info(self, result: Dict[str, Any], company_name: str) -> Dict[str, Any]:
         """Extract structured company information from search result"""

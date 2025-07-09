@@ -1,3 +1,7 @@
 .env
 *.pyc
 /uploads
+.venv
+.venv-wsl
+.venv-windows
+ai_coverletter/
