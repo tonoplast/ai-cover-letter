@@ -288,16 +288,151 @@ class LegacyDocumentParser:
         return ""
     
     def _analyze_writing_style(self, content: str) -> Dict[str, Any]:
-        """Analyze writing style characteristics"""
+        """Analyze writing style characteristics with enhanced vocabulary and pattern detection"""
+        import re
+        from collections import Counter
+        
+        # Basic text analysis
         sentences = re.split(r'[.!?]+', content)
         words = re.findall(r'\b\w+\b', content.lower())
         
+        # Enhanced vocabulary analysis
+        word_freq = Counter(words)
+        most_common_words = [word for word, count in word_freq.most_common(20) if len(word) > 3]
+        
+        # Extract common phrases (2-3 word combinations)
+        phrases = []
+        for i in range(len(words) - 1):
+            phrase = f"{words[i]} {words[i+1]}"
+            if len(phrase) > 5:
+                phrases.append(phrase)
+        phrase_freq = Counter(phrases)
+        common_phrases = [phrase for phrase, count in phrase_freq.most_common(10)]
+        
+        # Extract 3-word phrases
+        three_word_phrases = []
+        for i in range(len(words) - 2):
+            phrase = f"{words[i]} {words[i+1]} {words[i+2]}"
+            if len(phrase) > 8:
+                three_word_phrases.append(phrase)
+        three_word_freq = Counter(three_word_phrases)
+        common_three_word_phrases = [phrase for phrase, count in three_word_freq.most_common(5)]
+        
+        # Analyze sentence structures
+        sentence_lengths = [len(sentence.split()) for sentence in sentences if sentence.strip()]
+        avg_sentence_length = sum(sentence_lengths) / len(sentence_lengths) if sentence_lengths else 0
+        
+        # Detect writing patterns
+        formal_words = len(re.findall(r'\b(?:therefore|furthermore|moreover|consequently|subsequently|additionally|further|thus|hence)\b', content, re.IGNORECASE))
+        action_verbs = len(re.findall(r'\b(?:developed|implemented|managed|led|created|designed|built|improved|established|coordinated|facilitated|delivered|achieved|increased|reduced|optimized|streamlined|enhanced|strengthened|expanded)\b', content, re.IGNORECASE))
+        
+        # Detect transition words and connectors
+        transition_words = len(re.findall(r'\b(?:however|although|nevertheless|meanwhile|subsequently|furthermore|moreover|additionally|consequently|therefore|thus|hence|accordingly|conversely|similarly|likewise|meanwhile|subsequently|previously|initially|finally|ultimately)\b', content, re.IGNORECASE))
+        
+        # Detect personal pronouns and voice
+        personal_pronouns = len(re.findall(r'\b(?:i|me|my|myself|we|us|our|ourselves)\b', content, re.IGNORECASE))
+        
+        # Detect professional terminology
+        professional_terms = len(re.findall(r'\b(?:strategy|initiative|project|team|leadership|collaboration|innovation|solution|framework|methodology|optimization|implementation|analysis|development|management|coordination|facilitation|delivery|achievement|improvement)\b', content, re.IGNORECASE))
+        
+        # Analyze paragraph structure (approximate)
+        paragraphs = content.split('\n\n')
+        avg_paragraph_length = sum(len(p.split()) for p in paragraphs if p.strip()) / len([p for p in paragraphs if p.strip()]) if paragraphs else 0
+        
+        # Detect writing tone indicators
+        enthusiastic_words = len(re.findall(r'\b(?:excited|passionate|thrilled|delighted|enthusiastic|eager|motivated|inspired|committed|dedicated)\b', content, re.IGNORECASE))
+        confident_words = len(re.findall(r'\b(?:confident|assured|certain|convinced|positive|successful|proven|demonstrated|established|achieved)\b', content, re.IGNORECASE))
+        
+        # Extract unique sentence starters
+        sentence_starters = []
+        for sentence in sentences:
+            if sentence.strip():
+                words_in_sentence = sentence.strip().split()
+                if words_in_sentence:
+                    starter = words_in_sentence[0].lower()
+                    if len(starter) > 2:
+                        sentence_starters.append(starter)
+        starter_freq = Counter(sentence_starters)
+        common_starters = [starter for starter, count in starter_freq.most_common(5)]
+        
         return {
-            'avg_sentence_length': len(words) / len(sentences) if sentences else 0,
+            # Basic metrics
+            'avg_sentence_length': avg_sentence_length,
+            'avg_paragraph_length': avg_paragraph_length,
             'vocabulary_diversity': len(set(words)) / len(words) if words else 0,
-            'formal_words': len(re.findall(r'\b(?:therefore|furthermore|moreover|consequently|subsequently)\b', content, re.IGNORECASE)),
-            'action_verbs': len(re.findall(r'\b(?:developed|implemented|managed|led|created|designed|built|improved)\b', content, re.IGNORECASE))
+            
+            # Vocabulary analysis
+            'common_words': most_common_words,
+            'common_phrases': common_phrases,
+            'common_three_word_phrases': common_three_word_phrases,
+            'common_sentence_starters': common_starters,
+            
+            # Style indicators
+            'formal_words_count': formal_words,
+            'action_verbs_count': action_verbs,
+            'transition_words_count': transition_words,
+            'personal_pronouns_count': personal_pronouns,
+            'professional_terms_count': professional_terms,
+            
+            # Tone indicators
+            'enthusiastic_words_count': enthusiastic_words,
+            'confident_words_count': confident_words,
+            
+            # Writing patterns
+            'uses_transitions': transition_words > 2,
+            'uses_action_verbs': action_verbs > 3,
+            'uses_professional_terms': professional_terms > 2,
+            'personal_voice': personal_pronouns > 5,
+            'enthusiastic_tone': enthusiastic_words > 2,
+            'confident_tone': confident_words > 2,
+            
+            # Style summary
+            'writing_style_summary': self._generate_style_summary({
+                'avg_sentence_length': avg_sentence_length,
+                'transition_words': transition_words,
+                'action_verbs': action_verbs,
+                'personal_pronouns': personal_pronouns,
+                'enthusiastic_words': enthusiastic_words,
+                'confident_words': confident_words,
+                'professional_terms': professional_terms
+            })
         }
+    
+    def _generate_style_summary(self, metrics: Dict[str, Any]) -> str:
+        """Generate a human-readable summary of the writing style"""
+        style_characteristics = []
+        
+        if metrics['avg_sentence_length'] > 20:
+            style_characteristics.append("uses longer, detailed sentences")
+        elif metrics['avg_sentence_length'] < 15:
+            style_characteristics.append("uses concise, direct sentences")
+        else:
+            style_characteristics.append("uses balanced sentence lengths")
+            
+        if metrics['transition_words'] > 3:
+            style_characteristics.append("employs smooth transitions between ideas")
+            
+        if metrics['action_verbs'] > 5:
+            style_characteristics.append("uses strong action verbs")
+            
+        if metrics['personal_pronouns'] > 8:
+            style_characteristics.append("writes in a personal, first-person voice")
+        elif metrics['personal_pronouns'] < 3:
+            style_characteristics.append("writes in a more formal, third-person style")
+            
+        if metrics['enthusiastic_words'] > 3:
+            style_characteristics.append("conveys enthusiasm and passion")
+            
+        if metrics['confident_words'] > 3:
+            style_characteristics.append("expresses confidence and certainty")
+            
+        if metrics['professional_terms'] > 4:
+            style_characteristics.append("uses professional terminology")
+            
+        if not style_characteristics:
+            style_characteristics.append("maintains a professional tone")
+            
+        return f"Writing style: {'; '.join(style_characteristics)}"
     
     def _extract_key_points(self, content: str) -> List[str]:
         """Extract key points from cover letter"""
@@ -477,7 +612,7 @@ Extract the information and return ONLY the JSON object. Do not include any othe
 """
 
     def _create_cover_letter_extraction_prompt(self, content: str) -> str:
-        """Create prompt for cover letter extraction"""
+        """Create prompt for cover letter extraction with enhanced writing style analysis"""
         return f"""
 Please extract structured information from this cover letter. Return ONLY a JSON object with the following structure:
 
@@ -487,7 +622,20 @@ Please extract structured information from this cover letter. Return ONLY a JSON
     "position": "Position being applied for",
     "key_points": ["point1", "point2", "point3"],
     "tone": "professional/enthusiastic/formal/conversational",
-    "writing_style": "brief description of writing style",
+    "writing_style": {{
+        "style_description": "brief description of overall writing style",
+        "common_words": ["word1", "word2", "word3", "word4", "word5"],
+        "common_phrases": ["phrase1", "phrase2", "phrase3"],
+        "sentence_patterns": ["pattern1", "pattern2"],
+        "vocabulary_level": "simple/moderate/advanced",
+        "voice": "first-person/third-person/mixed",
+        "transitions": ["transition1", "transition2"],
+        "action_verbs": ["verb1", "verb2", "verb3"],
+        "professional_terms": ["term1", "term2", "term3"],
+        "enthusiasm_level": "low/moderate/high",
+        "confidence_level": "low/moderate/high",
+        "formality_level": "casual/professional/very formal"
+    }},
     "call_to_action": "any call to action mentioned"
 }}
 
@@ -659,16 +807,151 @@ Extract the information and return ONLY the JSON object. Do not include any othe
         return ""
     
     def _analyze_writing_style(self, content: str) -> Dict[str, Any]:
-        """Analyze writing style characteristics"""
+        """Analyze writing style characteristics with enhanced vocabulary and pattern detection"""
+        import re
+        from collections import Counter
+        
+        # Basic text analysis
         sentences = re.split(r'[.!?]+', content)
         words = re.findall(r'\b\w+\b', content.lower())
         
+        # Enhanced vocabulary analysis
+        word_freq = Counter(words)
+        most_common_words = [word for word, count in word_freq.most_common(20) if len(word) > 3]
+        
+        # Extract common phrases (2-3 word combinations)
+        phrases = []
+        for i in range(len(words) - 1):
+            phrase = f"{words[i]} {words[i+1]}"
+            if len(phrase) > 5:
+                phrases.append(phrase)
+        phrase_freq = Counter(phrases)
+        common_phrases = [phrase for phrase, count in phrase_freq.most_common(10)]
+        
+        # Extract 3-word phrases
+        three_word_phrases = []
+        for i in range(len(words) - 2):
+            phrase = f"{words[i]} {words[i+1]} {words[i+2]}"
+            if len(phrase) > 8:
+                three_word_phrases.append(phrase)
+        three_word_freq = Counter(three_word_phrases)
+        common_three_word_phrases = [phrase for phrase, count in three_word_freq.most_common(5)]
+        
+        # Analyze sentence structures
+        sentence_lengths = [len(sentence.split()) for sentence in sentences if sentence.strip()]
+        avg_sentence_length = sum(sentence_lengths) / len(sentence_lengths) if sentence_lengths else 0
+        
+        # Detect writing patterns
+        formal_words = len(re.findall(r'\b(?:therefore|furthermore|moreover|consequently|subsequently|additionally|further|thus|hence)\b', content, re.IGNORECASE))
+        action_verbs = len(re.findall(r'\b(?:developed|implemented|managed|led|created|designed|built|improved|established|coordinated|facilitated|delivered|achieved|increased|reduced|optimized|streamlined|enhanced|strengthened|expanded)\b', content, re.IGNORECASE))
+        
+        # Detect transition words and connectors
+        transition_words = len(re.findall(r'\b(?:however|although|nevertheless|meanwhile|subsequently|furthermore|moreover|additionally|consequently|therefore|thus|hence|accordingly|conversely|similarly|likewise|meanwhile|subsequently|previously|initially|finally|ultimately)\b', content, re.IGNORECASE))
+        
+        # Detect personal pronouns and voice
+        personal_pronouns = len(re.findall(r'\b(?:i|me|my|myself|we|us|our|ourselves)\b', content, re.IGNORECASE))
+        
+        # Detect professional terminology
+        professional_terms = len(re.findall(r'\b(?:strategy|initiative|project|team|leadership|collaboration|innovation|solution|framework|methodology|optimization|implementation|analysis|development|management|coordination|facilitation|delivery|achievement|improvement)\b', content, re.IGNORECASE))
+        
+        # Analyze paragraph structure (approximate)
+        paragraphs = content.split('\n\n')
+        avg_paragraph_length = sum(len(p.split()) for p in paragraphs if p.strip()) / len([p for p in paragraphs if p.strip()]) if paragraphs else 0
+        
+        # Detect writing tone indicators
+        enthusiastic_words = len(re.findall(r'\b(?:excited|passionate|thrilled|delighted|enthusiastic|eager|motivated|inspired|committed|dedicated)\b', content, re.IGNORECASE))
+        confident_words = len(re.findall(r'\b(?:confident|assured|certain|convinced|positive|successful|proven|demonstrated|established|achieved)\b', content, re.IGNORECASE))
+        
+        # Extract unique sentence starters
+        sentence_starters = []
+        for sentence in sentences:
+            if sentence.strip():
+                words_in_sentence = sentence.strip().split()
+                if words_in_sentence:
+                    starter = words_in_sentence[0].lower()
+                    if len(starter) > 2:
+                        sentence_starters.append(starter)
+        starter_freq = Counter(sentence_starters)
+        common_starters = [starter for starter, count in starter_freq.most_common(5)]
+        
         return {
-            'avg_sentence_length': len(words) / len(sentences) if sentences else 0,
+            # Basic metrics
+            'avg_sentence_length': avg_sentence_length,
+            'avg_paragraph_length': avg_paragraph_length,
             'vocabulary_diversity': len(set(words)) / len(words) if words else 0,
-            'formal_words': len(re.findall(r'\b(?:therefore|furthermore|moreover|consequently|subsequently)\b', content, re.IGNORECASE)),
-            'action_verbs': len(re.findall(r'\b(?:developed|implemented|managed|led|created|designed|built|improved)\b', content, re.IGNORECASE))
+            
+            # Vocabulary analysis
+            'common_words': most_common_words,
+            'common_phrases': common_phrases,
+            'common_three_word_phrases': common_three_word_phrases,
+            'common_sentence_starters': common_starters,
+            
+            # Style indicators
+            'formal_words_count': formal_words,
+            'action_verbs_count': action_verbs,
+            'transition_words_count': transition_words,
+            'personal_pronouns_count': personal_pronouns,
+            'professional_terms_count': professional_terms,
+            
+            # Tone indicators
+            'enthusiastic_words_count': enthusiastic_words,
+            'confident_words_count': confident_words,
+            
+            # Writing patterns
+            'uses_transitions': transition_words > 2,
+            'uses_action_verbs': action_verbs > 3,
+            'uses_professional_terms': professional_terms > 2,
+            'personal_voice': personal_pronouns > 5,
+            'enthusiastic_tone': enthusiastic_words > 2,
+            'confident_tone': confident_words > 2,
+            
+            # Style summary
+            'writing_style_summary': self._generate_style_summary({
+                'avg_sentence_length': avg_sentence_length,
+                'transition_words': transition_words,
+                'action_verbs': action_verbs,
+                'personal_pronouns': personal_pronouns,
+                'enthusiastic_words': enthusiastic_words,
+                'confident_words': confident_words,
+                'professional_terms': professional_terms
+            })
         }
+    
+    def _generate_style_summary(self, metrics: Dict[str, Any]) -> str:
+        """Generate a human-readable summary of the writing style"""
+        style_characteristics = []
+        
+        if metrics['avg_sentence_length'] > 20:
+            style_characteristics.append("uses longer, detailed sentences")
+        elif metrics['avg_sentence_length'] < 15:
+            style_characteristics.append("uses concise, direct sentences")
+        else:
+            style_characteristics.append("uses balanced sentence lengths")
+            
+        if metrics['transition_words'] > 3:
+            style_characteristics.append("employs smooth transitions between ideas")
+            
+        if metrics['action_verbs'] > 5:
+            style_characteristics.append("uses strong action verbs")
+            
+        if metrics['personal_pronouns'] > 8:
+            style_characteristics.append("writes in a personal, first-person voice")
+        elif metrics['personal_pronouns'] < 3:
+            style_characteristics.append("writes in a more formal, third-person style")
+            
+        if metrics['enthusiastic_words'] > 3:
+            style_characteristics.append("conveys enthusiasm and passion")
+            
+        if metrics['confident_words'] > 3:
+            style_characteristics.append("expresses confidence and certainty")
+            
+        if metrics['professional_terms'] > 4:
+            style_characteristics.append("uses professional terminology")
+            
+        if not style_characteristics:
+            style_characteristics.append("maintains a professional tone")
+            
+        return f"Writing style: {'; '.join(style_characteristics)}"
     
     def _extract_key_points(self, content: str) -> List[str]:
         """Extract key points from cover letter"""

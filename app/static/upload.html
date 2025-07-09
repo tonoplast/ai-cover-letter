@@ -160,7 +160,7 @@
             padding: 20px;
             margin-top: 20px;
             white-space: pre-wrap;
-            font-family: 'Times New Roman', serif;
+            font-family: Arial, sans-serif;
             line-height: 1.6;
         }
         .company-info {
@@ -417,6 +417,192 @@
             padding: 10px;
             background-color: #e9ecef;
             border-radius: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            align-items: center;
+        }
+        .select-all-container label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .select-all-container input[type="checkbox"] {
+            margin: 0;
+        }
+        
+        /* Collapsible sections styles */
+        .collapsible-section {
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .collapsible-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            transition: background 0.3s ease;
+        }
+        .collapsible-header:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        .collapsible-header .section-icon {
+            font-size: 18px;
+            margin-right: 10px;
+        }
+        .collapsible-header .section-count {
+            font-size: 14px;
+            font-weight: bold;
+            color: #007bff;
+            margin-left: 8px;
+            display: inline-block;
+            min-width: 32px;
+            text-align: right;
+            background: none;
+            border-radius: 0;
+            padding: 0;
+        }
+        .collapsible-header .toggle-icon {
+            font-size: 16px;
+            transition: transform 0.3s ease;
+            display: inline-block;
+        }
+        .collapsible-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+        .collapsible-header .toggle-icon {
+            transform: rotate(0deg);
+        }
+        .collapsible-content {
+            max-height: 600px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+            background: white;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+        .collapsible-content .section-items {
+            padding: 15px;
+        }
+        
+        /* Custom scrollbar styling */
+        .collapsible-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .collapsible-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .collapsible-content::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        .collapsible-content::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        .scroll-indicator {
+            text-align: center;
+            padding: 10px;
+            color: #6c757d;
+            font-style: italic;
+            border-top: 1px solid #e9ecef;
+            margin-top: 10px;
+        }
+        
+        /* Search and filter styles */
+        .database-controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+        .search-filter-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-dropdown {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .view-toggle button {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+        .view-toggle button.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .view-toggle button:hover {
+            background: #f8f9fa;
+        }
+        .view-toggle button.active:hover {
+            background: #0056b3;
+        }
+        
+        /* Compact view styles */
+        .database-item.compact {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+        .database-item.compact .database-item-content {
+            font-size: 13px;
+        }
+        .database-item.compact .database-item-actions button {
+            padding: 3px 8px;
+            font-size: 11px;
+        }
+        
+        /* Empty state styles */
+        .empty-section {
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .empty-section .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
         }
         .bulk-actions {
             margin-top: 15px;
@@ -659,6 +845,82 @@
                 min-height: 500px; 
             }
         }
+        .generation-form { display: none; }
+        .generation-form.active { display: block; }
+        .generation-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 24px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            background: #f4f7fa;
+            border: 1px solid #e0e0e0;
+            width: fit-content;
+        }
+        .generation-tab {
+            flex: 1 1 0;
+            padding: 18px 36px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #555;
+            background: #f4f7fa;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            border-right: 1px solid #e0e0e0;
+            border-radius: 0;
+        }
+        .generation-tab:last-child {
+            border-right: none;
+        }
+        .generation-tab.active {
+            background: #fff;
+            color: #007bff;
+            box-shadow: 0 4px 16px rgba(0,123,255,0.08);
+            z-index: 1;
+            border-bottom: 2px solid #007bff;
+        }
+        .generation-tab:not(.active):hover {
+            background: #e9f2fb;
+            color: #0056b3;
+        }
+        @media (max-width: 700px) {
+            .generation-tabs { flex-direction: column; width: 100%; }
+            .generation-tab { width: 100%; border-right: none; border-bottom: 1px solid #e0e0e0; }
+            .generation-tab:last-child { border-bottom: none; }
+        }
+        .section-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 32px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .section-summary p {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            min-width: 220px;
+            justify-content: space-between;
+        }
+        .section-summary .summary-label {
+            flex: 1 1 auto;
+            text-align: left;
+            padding-right: 8px;
+        }
+        .section-summary .summary-count, .collapsible-header .section-count {
+            flex: 0 0 40px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-weight: bold;
+            color: #007bff;
+            margin-left: 8px;
+            display: inline-block;
+            min-width: 32px;
+        }
     </style>
 </head>
 <body>
@@ -761,196 +1023,227 @@
             </div>
         </div>
 
+        <!-- Move Search Provider Information to only show in Generate Cover Letter tab -->
+        <div id="search-provider-info-container" style="display: none;">
+            <div id="search-provider-info" class="section" style="margin-bottom: 24px;">
+                <h3 style="margin-top: 0;">Search Provider Information</h3>
+                <div id="searchProviderInfoContent"></div>
+            </div>
+        </div>
+
         <!-- Generate Cover Letter Tab -->
         <div id="generate-tab" class="tab-content">
             <div class="section">
-                <h2>🔍 Search Provider Information</h2>
-                <div id="searchProviderInfo"></div>
-            </div>
-
-            <div class="section">
-                <h2>✍️ Generate Cover Letter</h2>
-                <div class="form-group">
-                    <label for="jobTitle">Job Title:</label>
-                    <input type="text" id="jobTitle" placeholder="e.g., Software Engineer, Data Scientist">
+                <h2>✍️ Cover Letter Generation</h2>
+                <div class="generation-tabs">
+                    <button class="generation-tab active" id="singleGenTab" onclick="showGenerationTab('single')">Single Cover Letter</button>
+                    <button class="generation-tab" id="batchGenTab" onclick="showGenerationTab('batch')">Batch Cover Letters</button>
                 </div>
-                <div class="form-group">
-                    <label for="companyName">Company Name:</label>
-                    <input type="text" id="companyName" placeholder="e.g., Google, Microsoft, etc.">
+                <div id="singleGenerationForm" class="generation-form active">
+                    <div class="section">
+                        <h2>✍️ Single Cover Letter with User Input</h2>
+                        <div class="form-group">
+                            <label for="jobTitle">Job Title:</label>
+                            <input type="text" id="jobTitle" placeholder="e.g., Software Engineer, Data Scientist">
+                        </div>
+                        <div class="form-group">
+                            <label for="companyName">Company Name:</label>
+                            <input type="text" id="companyName" placeholder="e.g., Google, Microsoft, etc.">
+                        </div>
+                        <div class="form-group">
+                            <label for="jobDescription">Job Description:</label>
+                            <textarea id="jobDescription" placeholder="Paste the job description here..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="tone">Writing Tone:</label>
+                            <select id="tone">
+                                <option value="professional">Professional</option>
+                                <option value="enthusiastic">Enthusiastic</option>
+                                <option value="formal">Formal</option>
+                                <option value="conversational">Conversational</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="includeCompanyResearch" checked style="width: auto; margin: 0;">
+                                Include Company Research
+                            </label>
+                            <small style="color: #666;">When enabled, the AI will research the company and include relevant information (mission, values, industry) in your cover letter. Only includes information that can be verified.</small>
+                        </div>
+                        <div class="form-group" id="singleResearchProviderGroup" style="display: none;">
+                            <label for="singleSearchProvider">Research Provider:</label>
+                            <select id="singleSearchProvider">
+                                <option value="">Auto (Best Available)</option>
+                                <option value="tavily">Tavily AI (Recommended)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="google">Google AI</option>
+                                <option value="brave">Brave Search (Privacy-focused)</option>
+                                <option value="yacy">YaCy (Self-hosted)</option>
+                                <option value="searxng">SearXNG (Self-hosted)</option>
+                                <option value="duckduckgo">DuckDuckGo (Free)</option>
+                            </select>
+                            <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
+                        </div>
+                        <div class="form-group" id="singleResearchCountryGroup" style="display: none;">
+                            <label for="researchCountry">Research Country (Optional):</label>
+                            <select id="researchCountry">
+                                <option value="">Global (No country focus)</option>
+                                <option value="Australia">Australia</option>
+                                <option value="United States">United States</option>
+                                <option value="Canada">Canada</option>
+                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="Germany">Germany</option>
+                                <option value="France">France</option>
+                                <option value="Netherlands">Netherlands</option>
+                                <option value="Sweden">Sweden</option>
+                                <option value="Norway">Norway</option>
+                                <option value="Denmark">Denmark</option>
+                                <option value="Finland">Finland</option>
+                                <option value="Switzerland">Switzerland</option>
+                                <option value="Singapore">Singapore</option>
+                                <option value="Japan">Japan</option>
+                                <option value="South Korea">South Korea</option>
+                                <option value="New Zealand">New Zealand</option>
+                                <option value="Ireland">Ireland</option>
+                                <option value="Belgium">Belgium</option>
+                                <option value="Austria">Austria</option>
+                            </select>
+                            <small style="color: #666;">Focus search on a specific country for more relevant results. Leave empty for global search.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="llmProvider">AI Model Provider:</label>
+                            <select id="llmProvider">
+                                <option value="">Auto (Use Default: Ollama)</option>
+                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic Claude</option>
+                                <option value="google">Google Gemini</option>
+                            </select>
+                            <small style="color: #666;">Select which AI provider to use for cover letter generation. Auto uses the default configured provider.</small>
+                        </div>
+                        <div class="form-group" id="llmModelGroup" style="display: none;">
+                            <label for="llmModel">AI Model:</label>
+                            <select id="llmModel"></select>
+                            <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="strictRelevance" checked style="width: auto; margin: 0;">
+                                Strictly match job requirements to my experience (recommended)
+                            </label>
+                            <small style="color: #666;">When enabled, the AI will systematically address each job requirement using your real experience, and will not invent or exaggerate. If unticked, the cover letter may be more general or creative.</small>
+                        </div>
+                        <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
+                        <div id="coverLetterPreview"></div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="jobDescription">Job Description:</label>
-                    <textarea id="jobDescription" placeholder="Paste the job description here..."></textarea>
+                <div id="batchGenerationForm" class="generation-form">
+                    <div class="section">
+                        <h2>🌐 Batch Generate from Job Ad Websites</h2>
+                        <div class="form-group">
+                            <label for="batchJobTitle">Job Title (optional, used if not found on site):</label>
+                            <input type="text" id="batchJobTitle" placeholder="e.g., Software Engineer">
+                        </div>
+                        <div class="form-group">
+                            <label for="batchCompanyName">Company Name (optional, used if not found on site):</label>
+                            <input type="text" id="batchCompanyName" placeholder="e.g., Victoria Legal Aid">
+                        </div>
+                        <div class="form-group">
+                            <label for="batchJobDescription">Job Description (optional, used if not found on site):</label>
+                            <textarea id="batchJobDescription" placeholder="Paste a default job description..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchTone">Writing Tone:</label>
+                            <select id="batchTone">
+                                <option value="professional">Professional</option>
+                                <option value="enthusiastic">Enthusiastic</option>
+                                <option value="formal">Formal</option>
+                                <option value="conversational">Conversational</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchWebsites">Job Ad URLs (one per line):</label>
+                            <textarea id="batchWebsites" placeholder="https://jobsite.com/ad1\nhttps://jobsite.com/ad2\n..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchDelay">Delay between jobs (seconds):</label>
+                            <input type="number" id="batchDelay" value="3" min="1" max="10" style="width: 100px;">
+                            <small style="color: #666;">Higher values reduce chance of being blocked, but take longer</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="batchIncludeCompanyResearch" checked style="width: auto; margin: 0;">
+                                Include Company Research (Batch)
+                            </label>
+                            <small style="color: #666;">When enabled, the AI will research each company and include relevant information in cover letters.</small>
+                        </div>
+                        <div class="form-group" id="batchResearchProviderGroup" style="display: none;">
+                            <label for="batchResearchProvider">Research Provider:</label>
+                            <select id="batchResearchProvider">
+                                <option value="">Auto (Best Available)</option>
+                                <option value="tavily">Tavily AI (Recommended)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="google">Google AI</option>
+                                <option value="brave">Brave Search (Privacy-focused)</option>
+                                <option value="yacy">YaCy (Self-hosted)</option>
+                                <option value="searxng">SearXNG (Self-hosted)</option>
+                                <option value="duckduckgo">DuckDuckGo (Free)</option>
+                            </select>
+                            <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
+                        </div>
+                        <div class="form-group" id="batchResearchCountryGroup" style="display: none;">
+                            <label for="batchResearchCountry">Research Country (Optional):</label>
+                            <select id="batchResearchCountry">
+                                <option value="">Global (No country focus)</option>
+                                <option value="Australia">Australia</option>
+                                <option value="United States">United States</option>
+                                <option value="Canada">Canada</option>
+                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="Germany">Germany</option>
+                                <option value="France">France</option>
+                                <option value="Netherlands">Netherlands</option>
+                                <option value="Sweden">Sweden</option>
+                                <option value="Norway">Norway</option>
+                                <option value="Denmark">Denmark</option>
+                                <option value="Finland">Finland</option>
+                                <option value="Switzerland">Switzerland</option>
+                                <option value="Singapore">Singapore</option>
+                                <option value="Japan">Japan</option>
+                                <option value="South Korea">South Korea</option>
+                                <option value="New Zealand">New Zealand</option>
+                                <option value="Ireland">Ireland</option>
+                                <option value="Belgium">Belgium</option>
+                                <option value="Austria">Austria</option>
+                            </select>
+                            <small style="color: #666;">Focus search on a specific country for more relevant results. Leave empty for global search.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchLlmProvider">AI Model Provider (Batch):</label>
+                            <select id="batchLlmProvider">
+                                <option value="">Auto (Use Default: Ollama)</option>
+                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic Claude</option>
+                                <option value="google">Google Gemini</option>
+                            </select>
+                            <small style="color: #666;">Select which AI provider to use for batch cover letter generation. Auto uses the default configured provider.</small>
+                        </div>
+                        <div class="form-group" id="batchLlmModelGroup" style="display: none;">
+                            <label for="batchLlmModel">AI Model (Batch):</label>
+                            <select id="batchLlmModel"></select>
+                            <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="batchStrictRelevance" checked style="width: auto; margin: 0;">
+                                Strictly match job requirements to my experience (recommended)
+                            </label>
+                            <small style="color: #666;">When enabled, the AI will systematically address each job requirement using your real experience, and will not invent or exaggerate. If unticked, the cover letter may be more general or creative.</small>
+                        </div>
+                        <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
+                        <div id="batchStatus"></div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="tone">Writing Tone:</label>
-                    <select id="tone">
-                        <option value="professional">Professional</option>
-                        <option value="enthusiastic">Enthusiastic</option>
-                        <option value="formal">Formal</option>
-                        <option value="conversational">Conversational</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="includeCompanyResearch" checked style="width: auto; margin: 0;">
-                        Include Company Research
-                    </label>
-                    <small style="color: #666;">When enabled, the AI will research the company and include relevant information (mission, values, industry) in your cover letter. Only includes information that can be verified.</small>
-                </div>
-                <div class="form-group" id="singleResearchProviderGroup" style="display: none;">
-                    <label for="singleSearchProvider">Research Provider:</label>
-                    <select id="singleSearchProvider">
-                        <option value="">Auto (Best Available)</option>
-                        <option value="tavily">Tavily AI (Recommended)</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="google">Google AI</option>
-                        <option value="brave">Brave Search (Privacy-focused)</option>
-                        <option value="yacy">YaCy (Self-hosted)</option>
-                        <option value="searxng">SearXNG (Self-hosted)</option>
-                        <option value="duckduckgo">DuckDuckGo (Free)</option>
-                    </select>
-                    <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
-                </div>
-                <div class="form-group" id="singleResearchCountryGroup" style="display: none;">
-                    <label for="researchCountry">Research Country (Optional):</label>
-                    <select id="researchCountry">
-                        <option value="">Global (No country focus)</option>
-                        <option value="Australia">Australia</option>
-                        <option value="United States">United States</option>
-                        <option value="Canada">Canada</option>
-                        <option value="United Kingdom">United Kingdom</option>
-                        <option value="Germany">Germany</option>
-                        <option value="France">France</option>
-                        <option value="Netherlands">Netherlands</option>
-                        <option value="Sweden">Sweden</option>
-                        <option value="Norway">Norway</option>
-                        <option value="Denmark">Denmark</option>
-                        <option value="Finland">Finland</option>
-                        <option value="Switzerland">Switzerland</option>
-                        <option value="Singapore">Singapore</option>
-                        <option value="Japan">Japan</option>
-                        <option value="South Korea">South Korea</option>
-                        <option value="New Zealand">New Zealand</option>
-                        <option value="Ireland">Ireland</option>
-                        <option value="Belgium">Belgium</option>
-                        <option value="Austria">Austria</option>
-                    </select>
-                    <small style="color: #666;">Focus search on a specific country for more relevant results. Leave empty for global search.</small>
-                </div>
-                <div class="form-group">
-                    <label for="llmProvider">AI Model Provider:</label>
-                    <select id="llmProvider">
-                        <option value="">Auto (Use Default: Ollama)</option>
-                        <option value="ollama">Ollama (Local)</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="anthropic">Anthropic Claude</option>
-                        <option value="google">Google Gemini</option>
-                    </select>
-                    <small style="color: #666;">Select which AI provider to use for cover letter generation. Auto uses the default configured provider.</small>
-                </div>
-                <div class="form-group" id="llmModelGroup" style="display: none;">
-                    <label for="llmModel">AI Model:</label>
-                    <select id="llmModel"></select>
-                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
-                </div>
-                <button class="btn btn-success" onclick="generateCoverLetter()">🚀 Generate Cover Letter</button>
-                <div id="coverLetterPreview"></div>
-            </div>
-
-            <div class="section">
-                <h2>🌐 Batch Generate from Job Ad Websites</h2>
-                <div class="form-group">
-                    <label for="batchJobTitle">Job Title (optional, used if not found on site):</label>
-                    <input type="text" id="batchJobTitle" placeholder="e.g., Software Engineer">
-                </div>
-                <div class="form-group">
-                    <label for="batchJobDescription">Job Description (optional, used if not found on site):</label>
-                    <textarea id="batchJobDescription" placeholder="Paste a default job description..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="batchTone">Writing Tone:</label>
-                    <select id="batchTone">
-                        <option value="professional">Professional</option>
-                        <option value="enthusiastic">Enthusiastic</option>
-                        <option value="formal">Formal</option>
-                        <option value="conversational">Conversational</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="batchWebsites">Job Ad URLs (one per line):</label>
-                    <textarea id="batchWebsites" placeholder="https://jobsite.com/ad1\nhttps://jobsite.com/ad2\n..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="batchDelay">Delay between jobs (seconds):</label>
-                    <input type="number" id="batchDelay" value="3" min="1" max="10" style="width: 100px;">
-                    <small style="color: #666;">Higher values reduce chance of being blocked, but take longer</small>
-                </div>
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="batchIncludeCompanyResearch" checked style="width: auto; margin: 0;">
-                        Include Company Research (Batch)
-                    </label>
-                    <small style="color: #666;">When enabled, the AI will research each company and include relevant information in cover letters.</small>
-                </div>
-                <div class="form-group" id="batchResearchProviderGroup" style="display: none;">
-                    <label for="batchResearchProvider">Research Provider:</label>
-                    <select id="batchResearchProvider">
-                        <option value="">Auto (Best Available)</option>
-                        <option value="tavily">Tavily AI (Recommended)</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="google">Google AI</option>
-                        <option value="brave">Brave Search (Privacy-focused)</option>
-                        <option value="yacy">YaCy (Self-hosted)</option>
-                        <option value="searxng">SearXNG (Self-hosted)</option>
-                        <option value="duckduckgo">DuckDuckGo (Free)</option>
-                    </select>
-                    <small style="color: #666;">Select which search provider to use for company research. Auto will use the best available provider.</small>
-                </div>
-                <div class="form-group" id="batchResearchCountryGroup" style="display: none;">
-                    <label for="batchResearchCountry">Research Country (Optional):</label>
-                    <select id="batchResearchCountry">
-                        <option value="">Global (No country focus)</option>
-                        <option value="Australia">Australia</option>
-                        <option value="United States">United States</option>
-                        <option value="Canada">Canada</option>
-                        <option value="United Kingdom">United Kingdom</option>
-                        <option value="Germany">Germany</option>
-                        <option value="France">France</option>
-                        <option value="Netherlands">Netherlands</option>
-                        <option value="Sweden">Sweden</option>
-                        <option value="Norway">Norway</option>
-                        <option value="Denmark">Denmark</option>
-                        <option value="Finland">Finland</option>
-                        <option value="Switzerland">Switzerland</option>
-                        <option value="Singapore">Singapore</option>
-                        <option value="Japan">Japan</option>
-                        <option value="South Korea">South Korea</option>
-                        <option value="New Zealand">New Zealand</option>
-                        <option value="Ireland">Ireland</option>
-                        <option value="Belgium">Belgium</option>
-                        <option value="Austria">Austria</option>
-                    </select>
-                    <small style="color: #666;">Focus search on a specific country for more relevant results. Leave empty for global search.</small>
-                </div>
-                <div class="form-group">
-                    <label for="batchLlmProvider">AI Model Provider (Batch):</label>
-                    <select id="batchLlmProvider">
-                        <option value="">Auto (Use Default: Ollama)</option>
-                        <option value="ollama">Ollama (Local)</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="anthropic">Anthropic Claude</option>
-                        <option value="google">Google Gemini</option>
-                    </select>
-                    <small style="color: #666;">Select which AI provider to use for batch cover letter generation. Auto uses the default configured provider.</small>
-                </div>
-                <div class="form-group" id="batchLlmModelGroup" style="display: none;">
-                    <label for="batchLlmModel">AI Model (Batch):</label>
-                    <select id="batchLlmModel"></select>
-                    <small style="color: #666;">Select a specific model for the chosen provider. <b>Auto</b> uses the default model for the selected provider. <b>(Default)</b> marks the default model.</small>
-                </div>
-                <button class="btn btn-success" onclick="batchGenerateCoverLetters()">🚀 Batch Generate Cover Letters</button>
-                <div id="batchStatus"></div>
             </div>
         </div>
 
@@ -1046,19 +1339,40 @@
                 <button class="btn" onclick="checkDatabase()">🔄 Refresh Database Status</button>
                 <div id="databaseStatus"></div>
                 
-                <div class="select-all-container">
-                    <label><input type="checkbox" id="selectAllDocuments" onchange="toggleSelectAll('documents')"> Select All Documents</label>
-                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCV" onchange="toggleSelectAll('cv')"> Select All CV/Resume</label>
-                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCoverLetters" onchange="toggleSelectAll('cover_letters')"> Select All Cover Letters</label>
-                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllOtherDocuments" onchange="toggleSelectAll('other_documents')"> Select All Other Documents</label>
-                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllExperiences" onchange="toggleSelectAll('experiences')"> Select All Experiences</label>
-                    <label style="margin-left: 20px;"><input type="checkbox" id="selectAllCompanyResearch" onchange="toggleSelectAll('company_research')"> Select All Company Research</label>
-                </div>
-                
-                <div class="bulk-actions">
-                    <button class="btn btn-danger" onclick="deleteSelectedItems()">🗑️ Delete Selected</button>
-                    <button class="btn btn-danger" onclick="clearDatabase()">🗑️ Clear All Database</button>
-                    <span id="selectedCount">0 items selected</span>
+                <!-- Database Controls -->
+                <div class="database-controls">
+                    <div class="search-filter-container">
+                        <input type="text" id="databaseSearch" class="search-box" placeholder="🔍 Search files, titles, companies..." onkeyup="filterDatabaseItems()">
+                        <select id="databaseFilter" class="filter-dropdown" onchange="filterDatabaseItems()">
+                            <option value="all">All Items</option>
+                            <option value="cv">CV/Resume Only</option>
+                            <option value="cover_letters">Generated Cover Letters Only</option>
+                            <option value="cover_letter_docs">Uploaded Cover Letters Only</option>
+                            <option value="other">Other Documents Only</option>
+                            <option value="experience">Experiences Only</option>
+                            <option value="company_research">Company Research Only</option>
+                        </select>
+                        <div class="view-toggle">
+                            <button id="viewNormal" class="active" onclick="toggleViewMode('normal')">📋 Normal</button>
+                            <button id="viewCompact" onclick="toggleViewMode('compact')">📝 Compact</button>
+                        </div>
+                    </div>
+                    
+                    <div class="select-all-container">
+                        <label><input type="checkbox" id="selectAllDocuments" onchange="toggleSelectAll('documents')"> All Documents</label>
+                        <label><input type="checkbox" id="selectAllCV" onchange="toggleSelectAll('cv')"> All CV/Resume</label>
+                        <label><input type="checkbox" id="selectAllCoverLetters" onchange="toggleSelectAll('cover_letters')"> All Generated Cover Letters</label>
+                        <label><input type="checkbox" id="selectAllCoverLetterDocs" onchange="toggleSelectAll('cover_letter_docs')"> All Uploaded Cover Letters</label>
+                        <label><input type="checkbox" id="selectAllOtherDocuments" onchange="toggleSelectAll('other_documents')"> All Other Documents</label>
+                        <label><input type="checkbox" id="selectAllExperiences" onchange="toggleSelectAll('experiences')"> All Experiences</label>
+                        <label><input type="checkbox" id="selectAllCompanyResearch" onchange="toggleSelectAll('company_research')"> All Company Research</label>
+                    </div>
+                    
+                    <div class="bulk-actions">
+                        <button class="btn btn-danger" onclick="deleteSelectedItems()">🗑️ Delete Selected</button>
+                        <button class="btn btn-danger" onclick="clearDatabase()">🗑️ Clear All Database</button>
+                        <span id="selectedCount">0 items selected</span>
+                    </div>
                 </div>
                 
                 <div id="databaseDetails"></div>
@@ -1100,6 +1414,9 @@
             // Show selected tab
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
+
+            // Show/hide search provider info only for generate tab
+            document.getElementById('search-provider-info-container').style.display = (tabName === 'generate') ? 'block' : 'none';
 
             // Load data for specific tabs
             if (tabName === 'database') {
@@ -1368,7 +1685,7 @@
                 const response = await fetch('/search-providers');
                 const data = await response.json();
                 
-                const providerInfo = document.getElementById('searchProviderInfo');
+                const providerInfo = document.getElementById('searchProviderInfoContent');
                 providerInfo.innerHTML = `
                     <div class="status info">
                         <h4>🔍 Available Search Providers:</h4>
@@ -1724,10 +2041,24 @@
             const jobDescription = document.getElementById('jobDescription').value.trim();
             const tone = document.getElementById('tone').value;
             const includeCompanyResearch = document.getElementById('includeCompanyResearch').checked;
-            const searchProvider = document.getElementById('singleSearchProvider').value;
-            const researchCountry = document.getElementById('researchCountry').value;
+            const researchProvider = document.getElementById('singleSearchProvider') ? document.getElementById('singleSearchProvider').value : '';
+            const researchCountry = document.getElementById('researchCountry') ? document.getElementById('researchCountry').value : '';
             const llmProvider = document.getElementById('llmProvider').value;
             const llmModel = document.getElementById('llmModel').value;
+            const strictRelevance = document.getElementById('strictRelevance').checked;
+
+            const payload = {
+                job_title: jobTitle,
+                company_name: companyName,
+                job_description: jobDescription,
+                tone: tone,
+                include_company_research: includeCompanyResearch,
+                research_provider: researchProvider,
+                research_country: researchCountry,
+                llm_provider: llmProvider,
+                llm_model: llmModel,
+                strict_relevance: strictRelevance
+            };
 
             if (!jobTitle || !companyName || !jobDescription) {
                 showStatus('❌ Please fill in all required fields', 'error');
@@ -1742,22 +2073,12 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        job_title: jobTitle,
-                        company_name: companyName,
-                        job_description: jobDescription,
-                        tone: tone,
-                        include_company_research: includeCompanyResearch,
-                        research_provider: searchProvider || null,
-                        research_country: researchCountry || null,
-                        llm_provider: llmProvider || null,
-                        llm_model: llmModel || null
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const result = await response.json();
 
-                if (response.ok) {
+                if (response.ok && !result.error && !result.warning && !result.detail?.toString().toLowerCase().includes('deprecated_endpoint')) {
                     const preview = document.getElementById('coverLetterPreview');
                     preview.innerHTML = `
                         <h3>📝 Generated Cover Letter</h3>
@@ -1771,7 +2092,13 @@
                     showStatus('✅ Cover letter generated successfully', 'success');
                     checkDatabase();
                 } else {
-                    showStatus(`❌ Error: ${result.detail}`, 'error');
+                    let errorMsg = result.detail || result.error || result.warning || 'Unknown error.';
+                    if (errorMsg.toString().toLowerCase().includes('deprecated_endpoint')) {
+                        errorMsg = '❌ Model API error: DEPRECATED_ENDPOINT. Please check your model provider or try a different model.';
+                    }
+                    showStatus(`❌ Error: ${errorMsg}`, 'error');
+                    // Prevent further processing
+                    return;
                 }
             } catch (error) {
                 showStatus(`❌ Cover letter generation failed: ${error.message}`, 'error');
@@ -1806,138 +2133,190 @@
                 databaseData = data;
 
                 const databaseStatus = document.getElementById('databaseStatus');
-                // Count CV/Resume and Cover Letters separately
-                const cvDocs = data.documents.filter(doc => doc.document_type && doc.document_type.toLowerCase().includes('cv'));
-                const coverLetterDocs = data.documents.filter(doc => doc.document_type && doc.document_type.toLowerCase().includes('cover'));
-                const otherDocs = data.documents.filter(doc => !doc.document_type || (!doc.document_type.toLowerCase().includes('cv') && !doc.document_type.toLowerCase().includes('cover')));
+                
+                // Safely filter documents with null checks
+                const documents = data.documents || [];
+                const cvDocs = documents.filter(doc => doc && doc.document_type && typeof doc.document_type === 'string' && doc.document_type.toLowerCase().includes('cv'));
+                const coverLetterDocs = documents.filter(doc => doc && doc.document_type && typeof doc.document_type === 'string' && doc.document_type.toLowerCase().includes('cover'));
+                const otherDocs = documents.filter(doc => doc && (!doc.document_type || (typeof doc.document_type === 'string' && !doc.document_type.toLowerCase().includes('cv') && !doc.document_type.toLowerCase().includes('cover'))));
+
+                const coverLetters = data.cover_letters || [];
+                const experiences = data.experiences || [];
+                const companyResearch = data.company_research || [];
 
                 databaseStatus.innerHTML = `
                     <div class="status info">
                         <h4>📊 Database Summary:</h4>
-                        <p>📄 CV/Resume: ${cvDocs.length}</p>
-                        <p>📝 Cover Letters: ${data.cover_letters.length + coverLetterDocs.length}</p>
-                        <p>📄 Other Documents: ${otherDocs.length}</p>
-                        <p>💼 Experiences: ${data.experiences.length}</p>
-                        <p>🏢 Company Research: ${data.company_research.length}</p>
+                        <p><span class="summary-label">📄 CV/Resume</span> <span class="summary-count">(${cvDocs.length})</span></p>
+                        <p><span class="summary-label">📝 Generated Cover Letters</span> <span class="summary-count">(${coverLetters.length})</span></p>
+                        <p><span class="summary-label">📄 Uploaded Cover Letters</span> <span class="summary-count">(${coverLetterDocs.length})</span></p>
+                        <p><span class="summary-label">💼 Experiences</span> <span class="summary-count">(${experiences.length})</span></p>
+                        <p><span class="summary-label">🏢 Company Research</span> <span class="summary-count">(${companyResearch.length})</span></p>
                     </div>
                 `;
 
-                // Show detailed database contents with checkboxes
+                // Show detailed database contents with collapsible sections
                 const databaseDetails = document.getElementById('databaseDetails');
-                let detailsHtml = '<h4>📋 Detailed Contents:</h4>';
+                let detailsHtml = '';
 
-                if (cvDocs.length > 0) {
-                    detailsHtml += '<h5>📄 CV/Resume:</h5>';
-                    cvDocs.forEach(doc => {
-                        detailsHtml += `
-                            <div class="database-item">
-                                <input type="checkbox" class="cv-checkbox" value="${doc.id}" data-type="cv">
-                                <div class="database-item-content">
-                                    <strong>${doc.filename}</strong> (CV/Resume) - ${doc.uploaded_at}
-                                </div>
-                                <div class="database-item-actions">
-                                    <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
-                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                if (data.cover_letters.length > 0 || coverLetterDocs.length > 0) {
-                    detailsHtml += '<h5>📝 Cover Letters:</h5>';
-                    // Render cover letters from cover_letters
-                    data.cover_letters.forEach(cl => {
-                        detailsHtml += `
-                            <div class="database-item">
-                                <input type="checkbox" class="cl-checkbox" value="${cl.id}" data-type="cover_letters">
-                                <div class="database-item-content">
-                                    <strong>${cl.job_title || cl.filename || 'Cover Letter'}</strong> at ${cl.company_name || ''} - ${cl.generated_at || cl.uploaded_at || ''}
-                                </div>
-                                <div class="database-item-actions">
-                                    <button class="view-item-btn" onclick="viewItem('cover_letter', ${cl.id})">👁️ View</button>
-                                    <button class="delete-item-btn" onclick="deleteItem('cover_letter', ${cl.id})">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    // Render cover letters from documents with type cover
-                    coverLetterDocs.forEach(doc => {
-                        detailsHtml += `
-                            <div class="database-item">
-                                <input type="checkbox" class="cl-checkbox" value="${doc.id}" data-type="cover_letters">
-                                <div class="database-item-content">
-                                    <strong>${doc.filename}</strong> (Cover Letter) - ${doc.uploaded_at}
-                                </div>
-                                <div class="database-item-actions">
-                                    <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
-                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                if (otherDocs.length > 0) {
-                    detailsHtml += '<h5>📄 Other Documents:</h5>';
-                    otherDocs.forEach(doc => {
-                        detailsHtml += `
-                            <div class="database-item">
-                                <input type="checkbox" class="otherdoc-checkbox" value="${doc.id}" data-type="other_documents">
-                                <div class="database-item-content">
-                                    <strong>${doc.filename}</strong> (${doc.document_type || 'Other'}) - ${doc.uploaded_at}
-                                </div>
-                                <div class="database-item-actions">
-                                    <button class="view-item-btn" onclick="viewItem('document', ${doc.id})">👁️ View</button>
-                                    <button class="delete-item-btn" onclick="deleteItem('document', ${doc.id})">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                if (data.experiences.length > 0) {
-                    detailsHtml += '<h5>💼 Experiences:</h5>';
-                    data.experiences.forEach(exp => {
-                        detailsHtml += `
-                            <div class="database-item">
-                                <input type="checkbox" class="exp-checkbox" value="${exp.id}" data-type="experiences">
-                                <div class="database-item-content">
-                                    <strong>${exp.title}</strong> at ${exp.company} - ${exp.start_date}
-                                </div>
-                                <div class="database-item-actions">
-                                    <button class="view-item-btn" onclick="viewItem('experience', ${exp.id})">👁️ View</button>
-                                    <button class="delete-item-btn" onclick="deleteItem('experience', ${exp.id})">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                if (data.company_research.length > 0) {
-                    detailsHtml += '<h5>🏢 Company Research:</h5>';
-                    data.company_research.forEach(cr => {
-                        detailsHtml += `
-                            <div class="database-item">
-                                <input type="checkbox" class="cr-checkbox" value="${cr.id}" data-type="company_research">
-                                <div class="database-item-content">
-                                    <strong>${cr.company_name}</strong> - ${cr.researched_at}
-                                </div>
-                                <div class="database-item-actions">
-                                    <button class="view-item-btn" onclick="viewItem('company_research', ${cr.id})">👁️ View</button>
-                                    <button class="delete-item-btn" onclick="deleteItem('company_research', ${cr.id})">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
+                // CV/Resume Section
+                detailsHtml += createCollapsibleSection('cv', '📄 CV/Resume', cvDocs, 'cv', 'document');
+                
+                // Cover Letters Section - handle generated and uploaded separately
+                detailsHtml += createCollapsibleSection('cover_letters', '📝 Generated Cover Letters', coverLetters, 'cover_letters', 'cover_letter');
+                detailsHtml += createCollapsibleSection('cover_letter_docs', '📄 Uploaded Cover Letters', coverLetterDocs, 'cover_letter_docs', 'document');
+                
+                // Other Documents Section
+                detailsHtml += createCollapsibleSection('other_documents', '📄 Other Documents', otherDocs, 'other_documents', 'document');
+                
+                // Experiences Section
+                detailsHtml += createCollapsibleSection('experiences', '💼 Experiences', experiences, 'experiences', 'experience');
+                
+                // Company Research Section
+                detailsHtml += createCollapsibleSection('company_research', '🏢 Company Research', companyResearch, 'company_research', 'company_research');
 
                 databaseDetails.innerHTML = detailsHtml;
                 updateSelectedCount();
 
             } catch (error) {
+                console.error('Database check error:', error);
                 showStatus(`❌ Failed to check database: ${error.message}`, 'error');
+                
+                // Show a fallback message
+                const databaseDetails = document.getElementById('databaseDetails');
+                if (databaseDetails) {
+                    databaseDetails.innerHTML = `
+                        <div class="empty-section">
+                            <div class="empty-icon">⚠️</div>
+                            <p>Error loading database contents</p>
+                            <p>Please check the console for more details and try refreshing the page.</p>
+                        </div>
+                    `;
+                }
             }
+        }
+
+        function createCollapsibleSection(sectionId, title, items, dataType, itemType) {
+            if (!items || items.length === 0) {
+                return `
+                    <div class="collapsible-section">
+                        <div class="collapsible-header" onclick="toggleSection('${sectionId}')">
+                            <span><span class="section-icon">${title.split(' ')[0]}</span>${title.split(' ').slice(1).join(' ')}</span>
+                            <span class="section-count">0</span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="collapsible-content collapsed" id="content-${sectionId}">
+                            <div class="section-items">
+                                <div class="empty-section">
+                                    <div class="empty-icon">📭</div>
+                                    <p>No ${title.toLowerCase()} found</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let itemsHtml = '';
+            if (items.length > 10) {
+                itemsHtml += `<div class="scroll-indicator">⬇️ Scroll to see all ${items.length} items</div>`;
+            }
+            items.forEach(item => {
+                if (!item) return; // Skip null/undefined items
+                
+
+                
+                let itemContent, itemId, itemTitle;
+                
+                try {
+                    if (itemType === 'cover_letter') {
+                        // Cover letter - could be from cover_letters table or documents table
+                        if (item.job_title) {
+                            // Generated cover letter from cover_letters table
+                            itemContent = `<strong>${item.job_title || 'Cover Letter'}</strong> at ${item.company_name || ''} - ${item.generated_at || ''}`;
+                            itemId = item.id;
+                            itemTitle = item.job_title || 'Cover Letter';
+                        } else if (item.filename) {
+                            // Cover letter document from documents table
+                            itemContent = `<strong>${item.filename || 'Cover Letter'}</strong> (Cover Letter) - ${item.uploaded_at || 'Unknown Date'}`;
+                            itemId = item.id;
+                            itemTitle = item.filename || 'Cover Letter';
+                        } else {
+                            // Fallback for cover letter
+                            itemContent = `<strong>Cover Letter</strong> - ID: ${item.id || 'Unknown'}`;
+                            itemId = item.id;
+                            itemTitle = 'Cover Letter';
+                        }
+                    } else if (itemType === 'document') {
+                        // Document
+                        itemContent = `<strong>${item.filename || 'Unknown File'}</strong> (${item.document_type || 'Document'}) - ${item.uploaded_at || 'Unknown Date'}`;
+                        itemId = item.id;
+                        itemTitle = item.filename || 'Unknown File';
+                    } else if (itemType === 'experience') {
+                        // Experience
+                        itemContent = `<strong>${item.title || 'Unknown Title'}</strong> at ${item.company || 'Unknown Company'} - ${item.start_date || 'Unknown Date'}`;
+                        itemId = item.id;
+                        itemTitle = item.title || 'Unknown Title';
+                    } else if (itemType === 'company_research') {
+                        // Company Research
+                        itemContent = `<strong>${item.company_name || 'Unknown Company'}</strong> - ${item.researched_at || 'Unknown Date'}`;
+                        itemId = item.id;
+                        itemTitle = item.company_name || 'Unknown Company';
+                    } else {
+                        // Fallback for unknown item types
+                        itemContent = `<strong>Unknown Item</strong> - ID: ${item.id || 'Unknown'}`;
+                        itemId = item.id;
+                        itemTitle = 'Unknown Item';
+                    }
+
+                    // Ensure itemTitle and itemContent are strings before calling toLowerCase()
+                    const safeTitle = (itemTitle || '').toString().toLowerCase();
+                    const safeContent = (itemContent || '').toString().toLowerCase();
+
+                    itemsHtml += `
+                        <div class="database-item" data-type="${dataType}" data-title="${safeTitle}" data-content="${safeContent}">
+                            <input type="checkbox" class="${dataType}-checkbox" value="${itemId}" data-type="${dataType}">
+                            <div class="database-item-content">
+                                ${itemContent}
+                            </div>
+                            <div class="database-item-actions">
+                                <button class="view-item-btn" onclick="viewItem('${itemType}', ${itemId})">👁️ View</button>
+                                <button class="delete-item-btn" onclick="deleteItem('${itemType}', ${itemId})">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    `;
+                } catch (error) {
+                    console.error('Error processing item:', item, error);
+                    // Add a fallback item for debugging
+                    itemsHtml += `
+                        <div class="database-item" data-type="${dataType}" data-title="error" data-content="error">
+                            <input type="checkbox" class="${dataType}-checkbox" value="error" data-type="${dataType}">
+                            <div class="database-item-content">
+                                <strong>Error Processing Item</strong> - Check console for details
+                            </div>
+                            <div class="database-item-actions">
+                                <button class="view-item-btn" disabled>👁️ View</button>
+                                <button class="delete-item-btn" disabled>🗑️ Delete</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            return `
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('${sectionId}')">
+                        <span><span class="section-icon">${title.split(' ')[0]}</span>${title.split(' ').slice(1).join(' ')}</span>
+                        <span class="section-count">${items.length}</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="content-${sectionId}">
+                        <div class="section-items">
+                            ${itemsHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function showStatus(message, type = 'info', targetId = 'status') {
@@ -2537,11 +2916,13 @@
         function toggleSelectAll(type) {
             let selector;
             if (type === 'documents') {
-                selector = 'input[data-type="cv"], input[data-type="cover_letters"], input[data-type="other_documents"]';
+                selector = 'input[data-type="cv"], input[data-type="cover_letters"], input[data-type="cover_letter_docs"], input[data-type="other_documents"]';
             } else if (type === 'cv') {
                 selector = 'input[data-type="cv"]';
             } else if (type === 'cover_letters') {
                 selector = 'input[data-type="cover_letters"]';
+            } else if (type === 'cover_letter_docs') {
+                selector = 'input[data-type="cover_letter_docs"]';
             } else if (type === 'experiences') {
                 selector = 'input[data-type="experiences"]';
             } else if (type === 'company_research') {
@@ -2556,6 +2937,7 @@
                 'documents': 'selectAllDocuments',
                 'cv': 'selectAllCV',
                 'cover_letters': 'selectAllCoverLetters',
+                'cover_letter_docs': 'selectAllCoverLetterDocs',
                 'other_documents': 'selectAllOtherDocuments',
                 'experiences': 'selectAllExperiences',
                 'company_research': 'selectAllCompanyResearch'
@@ -2567,7 +2949,7 @@
             });
             // If toggling main documents, also uncheck all sub select-alls if unchecked
             if (type === 'documents' && !selectAllCheckbox.checked) {
-                ['selectAllCV', 'selectAllCoverLetters', 'selectAllOtherDocuments'].forEach(subId => {
+                ['selectAllCV', 'selectAllCoverLetters', 'selectAllCoverLetterDocs', 'selectAllOtherDocuments'].forEach(subId => {
                     const subBox = document.getElementById(subId);
                     if (subBox) subBox.checked = false;
                 });
@@ -2861,28 +3243,45 @@
 
             let deletedCount = 0;
             let errorCount = 0;
+            let failedItems = [];
 
             for (const checkbox of selectedCheckboxes) {
-                const type = checkbox.getAttribute('data-type');
+                let type = checkbox.getAttribute('data-type');
                 const id = checkbox.value;
-
+                // Ignore checkboxes with value 'on' or non-numeric IDs
+                if (!id || id === 'on' || isNaN(Number(id))) continue;
+                // Robust mapping for all types to backend endpoints
+                const typeMap = {
+                    'cv': 'document',
+                    'cover_letter_docs': 'document',
+                    'other_documents': 'document',
+                    'cover_letters': 'cover_letter',
+                    'experiences': 'experience',
+                    'company_research': 'company_research'
+                };
+                const endpointType = typeMap[type] || type;
                 try {
-                    const response = await fetch(`/delete-${type}/${id}`, {
+                    const response = await fetch(`/delete-${endpointType}/${id}`, {
                         method: 'DELETE'
                     });
-
                     if (response.ok) {
                         deletedCount++;
                     } else {
                         errorCount++;
+                        failedItems.push(`${type} (ID: ${id})`);
                     }
                 } catch (error) {
                     errorCount++;
+                    failedItems.push(`${type} (ID: ${id})`);
                 }
             }
 
             if (deletedCount > 0) {
-                showStatus(`✅ Successfully deleted ${deletedCount} items${errorCount > 0 ? `, ${errorCount} failed` : ''}`, 'success');
+                let msg = `✅ Successfully deleted ${deletedCount} item${deletedCount > 1 ? 's' : ''}`;
+                if (errorCount > 0) {
+                    msg += `. Failed to delete: ${failedItems.join(', ')}`;
+                }
+                showStatus(msg, errorCount > 0 ? 'error' : 'success');
                 checkDatabase(); // Refresh the database view
             } else {
                 showStatus(`❌ Failed to delete any items`, 'error');
@@ -2895,6 +3294,94 @@
                 updateSelectedCount();
             }
         });
+
+        // Collapsible section functionality
+        function toggleSection(sectionId) {
+            const header = document.querySelector(`[onclick="toggleSection('${sectionId}')"]`);
+            const content = document.getElementById(`content-${sectionId}`);
+            const toggleIcon = header.querySelector('.toggle-icon');
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                header.classList.remove('collapsed');
+                if (toggleIcon) toggleIcon.classList.remove('collapsed');
+            } else {
+                content.classList.add('collapsed');
+                header.classList.add('collapsed');
+                if (toggleIcon) toggleIcon.classList.add('collapsed');
+            }
+        }
+
+        // Search and filter functionality
+        function filterDatabaseItems() {
+            const searchTerm = document.getElementById('databaseSearch').value.toLowerCase();
+            const filterType = document.getElementById('databaseFilter').value;
+            const items = document.querySelectorAll('.database-item');
+            
+            items.forEach(item => {
+                const itemType = item.getAttribute('data-type');
+                const itemTitle = item.getAttribute('data-title') || '';
+                const itemContent = item.getAttribute('data-content') || '';
+                
+                let showByType = true;
+                if (filterType !== 'all') {
+                    showByType = itemType === filterType || 
+                                (filterType === 'cv' && itemType === 'cv') ||
+                                (filterType === 'cover_letters' && itemType === 'cover_letters') ||
+                                (filterType === 'cover_letter_docs' && itemType === 'cover_letter_docs') ||
+                                (filterType === 'other' && itemType === 'other_documents') ||
+                                (filterType === 'experience' && itemType === 'experiences') ||
+                                (filterType === 'company_research' && itemType === 'company_research');
+                }
+                
+                const showBySearch = searchTerm === '' || 
+                                   itemTitle.includes(searchTerm) || 
+                                   itemContent.includes(searchTerm);
+                
+                if (showByType && showBySearch) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Update section visibility based on visible items
+            updateSectionVisibility();
+        }
+
+        function updateSectionVisibility() {
+            const sections = ['cv', 'cover_letters', 'cover_letter_docs', 'other_documents', 'experiences', 'company_research'];
+            
+            sections.forEach(sectionId => {
+                const content = document.getElementById(`content-${sectionId}`);
+                if (content) {
+                    const visibleItems = content.querySelectorAll('.database-item[style="display: flex;"]');
+                    const section = content.closest('.collapsible-section');
+                    
+                    if (visibleItems.length === 0) {
+                        section.style.display = 'none';
+                    } else {
+                        section.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        // View mode functionality
+        function toggleViewMode(mode) {
+            const items = document.querySelectorAll('.database-item');
+            const normalBtn = document.getElementById('viewNormal');
+            const compactBtn = document.getElementById('viewCompact');
+            
+            if (mode === 'compact') {
+                items.forEach(item => item.classList.add('compact'));
+                normalBtn.classList.remove('active');
+                compactBtn.classList.add('active');
+            } else {
+                items.forEach(item => item.classList.remove('compact'));
+                normalBtn.classList.add('active');
+                compactBtn.classList.remove('active');
+            }
+        }
 
         // Diff comparison functionality
         let diffMode = false;
@@ -3021,6 +3508,7 @@
         async function batchGenerateCoverLetters() {
             const websitesRaw = document.getElementById('batchWebsites').value.trim();
             const jobTitle = document.getElementById('batchJobTitle').value.trim();
+            const companyName = document.getElementById('batchCompanyName').value.trim();
             const jobDescription = document.getElementById('batchJobDescription').value.trim();
             const tone = document.getElementById('batchTone').value;
             const delay = parseInt(document.getElementById('batchDelay').value) || 3;
@@ -3029,6 +3517,7 @@
             const researchCountry = document.getElementById('batchResearchCountry').value;
             const batchLlmProvider = document.getElementById('batchLlmProvider').value;
             const batchLlmModel = document.getElementById('batchLlmModel').value;
+            const batchStrictRelevance = document.getElementById('batchStrictRelevance').checked;
             
             if (!websitesRaw) {
                 showStatus('❌ Please enter at least one job ad URL', 'error', 'batchStatus');
@@ -3051,7 +3540,8 @@
                         research_provider: researchProvider || null,
                         research_country: researchCountry || null,
                         llm_provider: batchLlmProvider || null,
-                        llm_model: batchLlmModel || null
+                        llm_model: batchLlmModel || null,
+                        strict_relevance: batchStrictRelevance
                     })
                 });
                 const result = await response.json();
@@ -3061,7 +3551,12 @@
                         if (r.status === 'success') {
                             html += `<li>✅ <b>${r.company || 'Unknown Company'}</b> (${r.job_title || ''}) from <a href='${r.website}' target='_blank'>${r.website || 'N/A'}</a> - <b>Success</b></li>`;
                         } else {
-                            html += `<li>❌ <b>${r.company || 'Unknown'}</b> from <a href='${r.website}' target='_blank'>${r.website || 'N/A'}</a> - <b>Error:</b> ${r.error}</li>`;
+                            let errMsg = r.error;
+                            if (typeof errMsg === 'object') {
+                                console.error('Batch error object:', errMsg);
+                                errMsg = errMsg.error || JSON.stringify(errMsg);
+                            }
+                            html += `<li>❌ <b>${r.company || 'Unknown'}</b> from <a href='${r.website}' target='_blank'>${r.website || 'N/A'}</a> - <b>Error:</b> ${errMsg}</li>`;
                         }
                     });
                     html += `</ul><p>Total: ${result.total_processed}, Success: ${result.successful}, Failed: ${result.failed}</p></div>`;
@@ -3315,6 +3810,31 @@
                 }
             });
         }
+
+        function showGenerationTab(tab) {
+            document.getElementById('singleGenTab').classList.remove('active');
+            document.getElementById('batchGenTab').classList.remove('active');
+            document.getElementById('singleGenerationForm').classList.remove('active');
+            document.getElementById('batchGenerationForm').classList.remove('active');
+            if (tab === 'single') {
+                document.getElementById('singleGenTab').classList.add('active');
+                document.getElementById('singleGenerationForm').classList.add('active');
+            } else {
+                document.getElementById('batchGenTab').classList.add('active');
+                document.getElementById('batchGenerationForm').classList.add('active');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // ... existing code ...
+            // Ensure only the single generation form is visible by default
+            showGenerationTab('single');
+            // ... existing code ...
+        });
+
+        // On page load, ensure correct visibility
+        showTab('generate');
     </script>
 </body>
 </html> 
+

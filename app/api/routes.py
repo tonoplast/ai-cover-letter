@@ -24,6 +24,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException
+import logging
 
 class ChatRequest(BaseModel):
     cover_letter_id: int
@@ -47,6 +48,8 @@ class BatchCoverLetterRequest(BaseModel):
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+logging.basicConfig(level=logging.INFO)
 
 @router.get("/api")
 def read_root():
@@ -76,8 +79,14 @@ def upload_document(
         final_document_type = document_type
     
     file_path = UPLOAD_DIR / (file.filename or "unknown_file")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        logging.info(f"Saving uploaded file to: {file_path.resolve()}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        logging.info(f"File saved successfully: {file_path.resolve()}")
+    except Exception as e:
+        logging.error(f"Error saving file to {file_path.resolve()}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     parsed = document_parser.parse_document(str(file_path), final_document_type)
     
     # Calculate document weight using RAG service (includes filename date weighting)
@@ -364,18 +373,14 @@ def generate_cover_letter(
     req: CoverLetterRequest,
     db: Session = Depends(get_db)
 ):
-    """Generate a single cover letter using the same RAG+LLM workflow as batch generation."""
-    
-    # --- RAG+LLM Consistency: Gather all CVs and cover letters (same as batch) ---
+    """Generate a single cover letter using the same RAG+LLM workflow as batch generation, but only the most recent CV is used for the main experience block (others for augmentation)."""
+    # --- Gather all CVs and cover letters ---
     cv_docs = db.query(Document).filter(Document.document_type == "cv").order_by(Document.uploaded_at.desc()).all()
+    most_recent_cv = cv_docs[0] if cv_docs else None
     all_experiences = []
-    for idx, doc in enumerate(cv_docs):
-        parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
-        exps = parsed.get("experiences", [])
-        # Weight: duplicate recent experiences for more weight
-        weight = max(1, len(cv_docs) - idx)  # Most recent gets highest weight
-        all_experiences.extend(exps * weight)
-    
+    if most_recent_cv is not None:
+        parsed = most_recent_cv.parsed_data if isinstance(most_recent_cv.parsed_data, dict) else {}
+        all_experiences = parsed.get("experiences", [])
     # Writing style: merge/average from all cover letters, more weight to recent
     cover_docs = db.query(Document).filter(Document.document_type == "cover_letter").order_by(Document.uploaded_at.desc()).all()
     writing_style = {}
@@ -383,12 +388,15 @@ def generate_cover_letter(
         parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
         style = parsed.get("writing_style", {})
         weight = max(1, len(cover_docs) - idx)
-        for k, v in style.items():
-            if k not in writing_style:
-                writing_style[k] = []
-            writing_style[k].extend([v] * weight)
-    
-    # Average/merge writing style fields
+        if isinstance(style, dict):
+            for k, v in style.items():
+                if k not in writing_style:
+                    writing_style[k] = []
+                writing_style[k].extend([v] * weight)
+        elif isinstance(style, str):
+            if "style_description" not in writing_style:
+                writing_style["style_description"] = []
+            writing_style["style_description"].extend([style] * weight)
     merged_style = {}
     for k, vlist in writing_style.items():
         if all(isinstance(v, (int, float)) for v in vlist):
@@ -397,72 +405,67 @@ def generate_cover_letter(
             merged_style[k] = max(set(vlist), key=vlist.count)
         else:
             merged_style[k] = vlist[0] if vlist else None
-    
     # Handle company research based on user preference
     company_info = {}
-    if req.include_company_research:
-        # Check if we already have research for this company
-        company_research = db.query(CompanyResearch).filter(CompanyResearch.company_name.ilike(f"%{req.company_name}%")).order_by(CompanyResearch.researched_at.desc()).first()
-        
-        if company_research:
-            company_info = company_research.research_data if company_research.research_data else {}
-        else:
-            # Perform new company research
-            try:
-                # Use the specified provider or fallback to default
-                research_result = company_research_service.search_company(
-                    req.company_name, 
-                    provider=req.research_provider,
-                    country=req.research_country
-                )
-                if research_result:
-                    # Save the research to database
-                    research = CompanyResearch(
-                        company_name=research_result.get("company_name", req.company_name),
-                        website=research_result.get("website"),
-                        description=research_result.get("description"),
-                        industry=research_result.get("industry"),
-                        size=research_result.get("size"),
-                        location=research_result.get("location"),
-                        research_data=research_result
+    if getattr(req, 'include_company_research', False):
+        company_name = getattr(req, 'company_name', None)
+        if company_name is not None:
+            company_research = db.query(CompanyResearch).filter(CompanyResearch.company_name.ilike(f"%{company_name}%")).order_by(CompanyResearch.researched_at.desc()).first()
+            if company_research is not None:
+                company_info = company_research.research_data if company_research.research_data is not None else {}
+            else:
+                try:
+                    research_result = company_research_service.search_company(
+                        company_name,
+                        provider=getattr(req, 'research_provider', None),
+                        country=getattr(req, 'research_country', None)
                     )
-                    db.add(research)
-                    db.commit()
-                    company_info = research_result
-                else:
+                    if research_result:
+                        research = CompanyResearch(
+                            company_name=research_result.get("company_name", company_name),
+                            website=research_result.get("website"),
+                            description=research_result.get("description"),
+                            industry=research_result.get("industry"),
+                            size=research_result.get("size"),
+                            location=research_result.get("location"),
+                            research_data=research_result
+                        )
+                        db.add(research)
+                        db.commit()
+                        company_info = research_result
+                    else:
+                        company_info = {}
+                except Exception as e:
+                    print(f"Company research failed: {str(e)}")
                     company_info = {}
-            except Exception as e:
-                print(f"Company research failed: {str(e)}")
-                # Continue without company research
-                company_info = {}
-    
-    # Create LLM service with selected provider and model
     selected_llm_service = LLMService(
-        provider=req.llm_provider,
-        model=req.llm_model
+        provider=getattr(req, 'llm_provider', None),
+        model=getattr(req, 'llm_model', None)
     )
-    
-    # Generate cover letter using the same logic as batch generation
     generator = CoverLetterGenerator(db, selected_llm_service)
+    job_title = getattr(req, 'job_title', '') or ''
+    company_name = getattr(req, 'company_name', '') or ''
+    job_description = getattr(req, 'job_description', '') or ''
     content = generator.generate_cover_letter(
-        job_title=req.job_title,
-        company_name=req.company_name,
-        job_description=req.job_description,
-        company_info=company_info,
-        user_experiences=all_experiences,  # Using recency-weighted experiences from all CVs
-        writing_style=merged_style,  # Using merged writing style from all cover letters
-        tone=req.tone or "professional",
-        include_company_research=req.include_company_research or False
+        job_title=job_title,
+        company_name=company_name,
+        job_description=job_description,
+        company_info=company_info if isinstance(company_info, dict) else {},
+        user_experiences=all_experiences,
+        writing_style=merged_style,
+        tone=getattr(req, 'tone', 'professional'),
+        include_company_research=getattr(req, 'include_company_research', False),
+        strict_relevance=getattr(req, 'strict_relevance', True)
     )
-    
     cover = CoverLetter(
-        job_title=req.job_title,
-        company_name=req.company_name,
-        job_description=req.job_description,
+        job_title=job_title,
+        company_name=company_name,
+        job_description=job_description,
         generated_content=content,
-        company_research=company_info,  # Store the full research data
-        used_experiences=[],  # Empty since we're using CV data directly
-        writing_style_analysis=merged_style
+        company_research=company_info if isinstance(company_info, dict) else {},
+        used_experiences=[],
+        writing_style_analysis=merged_style,
+        generated_at=datetime.now()
     )
     db.add(cover)
     db.commit()
@@ -492,7 +495,7 @@ def get_database_contents(db: Session = Depends(get_db)):
                 "filename": doc.filename,
                 "document_type": doc.document_type,
                 "uploaded_at": doc.uploaded_at,
-                "content_preview": doc.content[:200] + "..." if doc.content else "No content",
+                "content_preview": doc.content[:200] + "..." if doc.content is not None and doc.content != "" else "No content",
                 "parsed_data_keys": list(doc.parsed_data.keys()) if isinstance(doc.parsed_data, dict) else "Not a dict"
             } for doc in documents
         ],
@@ -502,7 +505,7 @@ def get_database_contents(db: Session = Depends(get_db)):
                 "job_title": cl.job_title,
                 "company_name": cl.company_name,
                 "generated_at": cl.generated_at,
-                "content_preview": cl.generated_content[:200] + "..." if cl.generated_content else "No content"
+                "content_preview": cl.generated_content[:200] + "..." if cl.generated_content is not None and cl.generated_content != "" else "No content"
             } for cl in cover_letters
         ],
         "experiences": [
@@ -535,7 +538,7 @@ def get_cv_data(db: Session = Depends(get_db)):
             "id": doc.id,
             "filename": doc.filename,
             "uploaded_at": doc.uploaded_at,
-            "content_preview": doc.content[:500] + "..." if doc.content else "No content",
+            "content_preview": doc.content[:500] + "..." if doc.content is not None and doc.content != "" else "No content",
             "parsed_data": {
                 "personal_info": parsed_data.get("personal_info", {}),
                 "education": parsed_data.get("education", []),
@@ -550,7 +553,7 @@ def get_cv_data(db: Session = Depends(get_db)):
 def get_document_content(document_id: int, db: Session = Depends(get_db)):
     """Get full content of a specific document"""
     doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc:
+    if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     
     return {
@@ -566,7 +569,7 @@ def get_document_content(document_id: int, db: Session = Depends(get_db)):
 def get_cover_letter_content(cover_letter_id: int, db: Session = Depends(get_db)):
     """Get full content of a specific cover letter"""
     cover_letter = db.query(CoverLetter).filter(CoverLetter.id == cover_letter_id).first()
-    if not cover_letter:
+    if cover_letter is None:
         raise HTTPException(status_code=404, detail="Cover letter not found")
     
     return {
@@ -582,7 +585,7 @@ def get_cover_letter_content(cover_letter_id: int, db: Session = Depends(get_db)
 def get_experience_content(experience_id: int, db: Session = Depends(get_db)):
     """Get full content of a specific experience"""
     experience = db.query(Experience).filter(Experience.id == experience_id).first()
-    if not experience:
+    if experience is None:
         raise HTTPException(status_code=404, detail="Experience not found")
     
     return {
@@ -603,7 +606,7 @@ def get_experience_content(experience_id: int, db: Session = Depends(get_db)):
 def get_company_research_content(research_id: int, db: Session = Depends(get_db)):
     """Get full content of a specific company research entry"""
     research = db.query(CompanyResearch).filter(CompanyResearch.id == research_id).first()
-    if not research:
+    if research is None:
         raise HTTPException(status_code=404, detail="Company research not found")
     
     return {
@@ -661,7 +664,7 @@ def export_cover_letter(cover_letter_id: int, format: str = "pdf", db: Session =
     """Export a cover letter to the specified format"""
     # Get the cover letter
     cover_letter = db.query(CoverLetter).filter(CoverLetter.id == cover_letter_id).first()
-    if not cover_letter:
+    if cover_letter is None:
         raise HTTPException(status_code=404, detail="Cover letter not found")
     
     # Prepare data for export
@@ -670,7 +673,7 @@ def export_cover_letter(cover_letter_id: int, format: str = "pdf", db: Session =
         "company_name": cover_letter.company_name,
         "job_description": cover_letter.job_description,
         "generated_content": cover_letter.generated_content,
-        "generated_at": cover_letter.generated_at.isoformat() if cover_letter.generated_at else None
+        "generated_at": cover_letter.generated_at.isoformat() if cover_letter.generated_at is not None else None
     }
     
     # Export to specified format
@@ -722,7 +725,7 @@ def clear_database(db: Session = Depends(get_db)):
 def delete_document(document_id: int, db: Session = Depends(get_db)):
     """Delete a specific document"""
     doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc:
+    if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     
     try:
@@ -742,7 +745,7 @@ def delete_document(document_id: int, db: Session = Depends(get_db)):
 def delete_cover_letter(cover_letter_id: int, db: Session = Depends(get_db)):
     """Delete a specific cover letter"""
     cover_letter = db.query(CoverLetter).filter(CoverLetter.id == cover_letter_id).first()
-    if not cover_letter:
+    if cover_letter is None:
         raise HTTPException(status_code=404, detail="Cover letter not found")
     
     try:
@@ -758,7 +761,7 @@ def delete_cover_letter(cover_letter_id: int, db: Session = Depends(get_db)):
 def delete_experience(experience_id: int, db: Session = Depends(get_db)):
     """Delete a specific experience"""
     experience = db.query(Experience).filter(Experience.id == experience_id).first()
-    if not experience:
+    if experience is None:
         raise HTTPException(status_code=404, detail="Experience not found")
     
     try:
@@ -774,7 +777,7 @@ def delete_experience(experience_id: int, db: Session = Depends(get_db)):
 def delete_company_research(research_id: int, db: Session = Depends(get_db)):
     """Delete a specific company research entry"""
     research = db.query(CompanyResearch).filter(CompanyResearch.id == research_id).first()
-    if not research:
+    if research is None:
         raise HTTPException(status_code=404, detail="Company research not found")
     
     try:
@@ -790,7 +793,7 @@ def delete_company_research(research_id: int, db: Session = Depends(get_db)):
 def update_cover_letter(cover_letter_id: int, req: dict, db: Session = Depends(get_db)):
     """Update a specific cover letter's content"""
     cover_letter = db.query(CoverLetter).filter(CoverLetter.id == cover_letter_id).first()
-    if not cover_letter:
+    if cover_letter is None:
         raise HTTPException(status_code=404, detail="Cover letter not found")
     
     try:
@@ -911,8 +914,14 @@ def upload_multiple_documents(
             file_path = UPLOAD_DIR / safe_filename
             
             # Save file
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+            try:
+                logging.info(f"Saving uploaded file to: {file_path.resolve()}")
+                with open(file_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+                logging.info(f"File saved successfully: {file_path.resolve()}")
+            except Exception as e:
+                logging.error(f"Error saving file to {file_path.resolve()}: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
             
             # Parse document with optional LLM enhancement and image extraction
             use_llm = use_llm_extraction.lower() == "true"
@@ -997,7 +1006,7 @@ def chat_with_cover_letter(
     """Chat with the LLM to modify a cover letter"""
     # Get the cover letter
     cover_letter = db.query(CoverLetter).filter(CoverLetter.id == req.cover_letter_id).first()
-    if not cover_letter:
+    if cover_letter is None:
         raise HTTPException(status_code=404, detail="Cover letter not found")
     
     try:
@@ -1111,10 +1120,17 @@ def batch_cover_letters(
         parsed = doc.parsed_data if isinstance(doc.parsed_data, dict) else {}
         style = parsed.get("writing_style", {})
         weight = max(1, len(cover_docs) - idx)
-        for k, v in style.items():
-            if k not in writing_style:
-                writing_style[k] = []
-            writing_style[k].extend([v] * weight)
+        # Handle both dictionary and string writing_style formats
+        if isinstance(style, dict):
+            for k, v in style.items():
+                if k not in writing_style:
+                    writing_style[k] = []
+                writing_style[k].extend([v] * weight)
+        elif isinstance(style, str):
+            # If writing_style is a string, treat it as a single style description
+            if "style_description" not in writing_style:
+                writing_style["style_description"] = []
+            writing_style["style_description"].extend([style] * weight)
     # Average/merge writing style fields
     merged_style = {}
     for k, vlist in writing_style.items():
@@ -1175,16 +1191,17 @@ def batch_cover_letters(
                 user_experiences=all_experiences,
                 writing_style=merged_style,
                 tone=req.tone,
-                include_company_research=req.include_company_research
+                include_company_research=req.include_company_research,
+                strict_relevance=getattr(req, 'strict_relevance', True)
             )
             cover_letter = CoverLetter(
-                job_title=job_info["job_title"],
-                company_name=job_info["company_name"],
-                job_description=job_info["job_description"],
+                job_title=job_title,
+                company_name=company_name,
+                job_description=job_description,
                 generated_content=cover_letter_content,
-                company_research=company_info,  # Save the company research data
-                used_experiences=[],  # Empty since we're using CV data directly
-                writing_style_analysis={},  # Empty for batch generation
+                company_research=company_info if isinstance(company_info, dict) else {},
+                used_experiences=[],
+                writing_style_analysis={},
                 generated_at=datetime.now()
             )
             db.add(cover_letter)

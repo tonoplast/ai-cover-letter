@@ -428,6 +428,20 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
+## Documentation
+
+For detailed information about specific features and implementation details, see:
+
+- **[RAG Cover Letter Weighting](./RAG_COVER_LETTER_WEIGHTING.md)** - How uploaded vs generated cover letters work in the RAG system
+- **[Document Weighting](./DOCUMENT_WEIGHTING.md)** - Document type and recency weighting configuration
+- **[LLM Provider Selection](./LLM_PROVIDER_SELECTION.md)** - Available LLM providers and model selection
+- **[Research Provider Selection](./RESEARCH_PROVIDER_SELECTION.md)** - Company research providers and configuration
+- **[Enhanced LLM Selection](./ENHANCED_LLM_SELECTION_SUMMARY.md)** - Advanced LLM selection features
+- **[Enhanced Writing Style](./ENHANCED_WRITING_STYLE_SUMMARY.md)** - Writing style adaptation and analysis
+- **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - Technical implementation overview
+
+---
+
 **For questions or support, open an issue or contact the maintainer.**
 
 ## Logo Recognition Options: Open Source & Vision LLM

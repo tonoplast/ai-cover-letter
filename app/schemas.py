@@ -54,6 +54,7 @@ class CoverLetterRequest(BaseModel):
     research_country: Optional[str] = None  # Country to focus search on (e.g., "Australia", "United States", etc.)
     llm_provider: Optional[str] = None  # LLM provider (ollama, openai, anthropic)
     llm_model: Optional[str] = None  # Specific model for the LLM provider
+    strict_relevance: Optional[bool] = True  # Strictly match job requirements to experience
 
 class CoverLetterResponse(BaseModel):
     id: int
