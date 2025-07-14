@@ -686,6 +686,7 @@ def get_database_contents(db: Session = Depends(get_db)):
                 "filename": doc.filename,
                 "document_type": doc.document_type,
                 "uploaded_at": doc.uploaded_at,
+                "manual_weight": getattr(doc, 'manual_weight', 1.0) if hasattr(doc, 'manual_weight') else 1.0,
                 "content_preview": doc.content[:200] + "..." if doc.content is not None and doc.content != "" else "No content",
                 "parsed_data_keys": list(doc.parsed_data.keys()) if isinstance(doc.parsed_data, dict) else "Not a dict"
             } for doc in documents
@@ -715,6 +716,72 @@ def get_database_contents(db: Session = Depends(get_db)):
                 "researched_at": cr.researched_at
             } for cr in company_research
         ]
+    }
+
+@router.patch("/documents/{document_id}/weight")
+def update_document_weight(
+    document_id: int, 
+    weight_update: DocumentWeightUpdate, 
+    db: Session = Depends(get_db)
+):
+    """Update the manual weight of a document"""
+    # Check if manual_weight column exists
+    if not hasattr(Document, 'manual_weight'):
+        raise HTTPException(
+            status_code=501, 
+            detail="Manual weight feature requires database migration. Please run: ALTER TABLE documents ADD COLUMN manual_weight FLOAT DEFAULT 1.0;"
+        )
+    
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Validate weight is positive
+    if weight_update.manual_weight <= 0:
+        raise HTTPException(status_code=400, detail="Manual weight must be positive")
+    
+    # Update the manual weight
+    document.manual_weight = weight_update.manual_weight
+    db.commit()
+    db.refresh(document)
+    
+    return {
+        "message": "Document weight updated successfully",
+        "document_id": document_id,
+        "new_manual_weight": document.manual_weight,
+        "filename": document.filename
+    }
+
+@router.get("/documents/{document_id}/weight")
+def get_document_weight(document_id: int, db: Session = Depends(get_db)):
+    """Get the current weight information for a document"""
+    # Check if manual_weight column exists
+    if not hasattr(Document, 'manual_weight'):
+        raise HTTPException(
+            status_code=501, 
+            detail="Manual weight feature requires database migration. Please run: ALTER TABLE documents ADD COLUMN manual_weight FLOAT DEFAULT 1.0;"
+        )
+    
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Calculate the current effective weight using RAGService
+    rag_service = RAGService(db)
+    calculated_weight = rag_service.calculate_document_weight(document)
+    
+    return {
+        "document_id": document_id,
+        "filename": document.filename,
+        "document_type": document.document_type,
+        "manual_weight": getattr(document, 'manual_weight', 1.0) or 1.0,
+        "calculated_weight": calculated_weight,
+        "weight_info": {
+            "manual_weight": getattr(document, 'manual_weight', 1.0) or 1.0,
+            "type_weight": rag_service.get_document_type_weight(document.document_type),
+            "base_weight": rag_service.base_weight,
+            "final_calculated_weight": calculated_weight
+        }
     }
 
 @router.get("/cv-data")

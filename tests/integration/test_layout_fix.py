@@ -8,10 +8,11 @@ Simple test to verify the layout is now working correctly:
 
 import requests
 import json
+import pytest
 
-def test_layout_fix():
+def test_layout_fix(test_api_base_url):
     """Test that the layout is now working correctly"""
-    base_url = "http://localhost:8000"
+    base_url = test_api_base_url
     
     print("🧪 Testing Layout Fix")
     print("=" * 40)
@@ -19,7 +20,7 @@ def test_layout_fix():
     # Test 1: Check if LLM providers endpoint works
     print("\n1. Testing LLM providers endpoint...")
     try:
-        response = requests.get(f"{base_url}/llm-providers")
+        response = requests.get(f"{base_url}/llm-providers", timeout=5)
         if response.status_code == 200:
             data = response.json()
             providers = data.get('providers', [])
@@ -27,11 +28,11 @@ def test_layout_fix():
             for provider in providers:
                 print(f"   - {provider['name']}: {provider['display_name']}")
         else:
-            print(f"❌ LLM providers endpoint failed: {response.status_code}")
-            return False
+            pytest.fail(f"LLM providers endpoint failed: {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        pytest.skip("API server not running on localhost:8000. Start the server to run integration tests.")
     except Exception as e:
-        print(f"❌ Error testing LLM providers endpoint: {e}")
-        return False
+        pytest.fail(f"Error testing LLM providers endpoint: {e}")
     
     # Test 2: Check if models endpoint works for OpenAI
     print("\n2. Testing OpenAI models endpoint...")
@@ -77,7 +78,8 @@ def test_layout_fix():
     print("   3. Select an AI Model Provider - should show AI Model dropdown below it")
     print("   4. Go to 'Chat & Edit' tab - should have provider and model dropdowns")
     
-    return True
+    # Test passed - all endpoints working
+    assert True
 
 if __name__ == "__main__":
     test_layout_fix() 

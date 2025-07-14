@@ -9,6 +9,7 @@ Test script for layout improvements:
 import requests
 import json
 import time
+import pytest
 
 def test_layout_improvements():
     """Test the new layout improvements"""
@@ -22,7 +23,7 @@ def test_layout_improvements():
     
     try:
         # Test LLM providers endpoint
-        response = requests.get(f"{base_url}/llm-providers")
+        response = requests.get(f"{base_url}/llm-providers", timeout=5)
         if response.status_code == 200:
             data = response.json()
             providers = data.get('providers', [])
@@ -30,11 +31,11 @@ def test_layout_improvements():
             for provider in providers:
                 print(f"   - {provider['name']}: {provider['display_name']}")
         else:
-            print(f"❌ LLM providers endpoint failed: {response.status_code}")
-            return False
+            pytest.fail(f"LLM providers endpoint failed: {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        pytest.skip("API server not running on localhost:8000. Start the server to run integration tests.")
     except Exception as e:
-        print(f"❌ Error testing LLM providers endpoint: {e}")
-        return False
+        pytest.fail(f"Error testing LLM providers endpoint: {e}")
     
     try:
         # Test models endpoint for OpenAI
@@ -174,7 +175,8 @@ def test_layout_improvements():
     print("   ✅ Batch generation supports new layout options")
     print("   ✅ Chat functionality supports new layout options")
     
-    return True
+    # Test passed - all functionality working
+    assert True
 
 if __name__ == "__main__":
     test_layout_improvements() 

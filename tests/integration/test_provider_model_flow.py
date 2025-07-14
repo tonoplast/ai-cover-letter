@@ -5,6 +5,7 @@ Test to verify the provider and model selection flow
 
 import requests
 import json
+import pytest
 
 def test_provider_model_flow():
     """Test the provider and model selection flow"""
@@ -71,7 +72,8 @@ def test_provider_model_flow():
     print("   4. Select 'OpenAI' → AI Model shows all OpenAI models")
     print("   5. Select 'Auto (Use Default: Ollama)' → AI Model shows default")
     
-    return True
+    # Test completed successfully
+    assert True
 
 if __name__ == "__main__":
     test_provider_model_flow() 

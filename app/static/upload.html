@@ -398,7 +398,9 @@
         }
         .database-item-actions {
             display: flex;
+            align-items: center;
             gap: 5px;
+            flex-wrap: wrap;
         }
         .delete-item-btn {
             background-color: #dc3545;
@@ -588,6 +590,14 @@
         .database-item.compact .database-item-actions button {
             padding: 3px 8px;
             font-size: 11px;
+        }
+        .database-item.compact .database-item-actions input {
+            width: 50px;
+            font-size: 10px;
+            padding: 1px 2px;
+        }
+        .database-item.compact .database-item-actions label {
+            font-size: 10px;
         }
         
         /* Empty state styles */
@@ -2226,7 +2236,7 @@
                 
 
                 
-                let itemContent, itemId, itemTitle;
+                let itemContent, itemId, itemTitle, itemWeight;
                 
                 try {
                     if (itemType === 'cover_letter') {
@@ -2249,9 +2259,13 @@
                         }
                     } else if (itemType === 'document') {
                         // Document
+                        const manualWeight = item.manual_weight || 1.0;
                         itemContent = `<strong>${item.filename || 'Unknown File'}</strong> (${item.document_type || 'Document'}) - ${item.uploaded_at || 'Unknown Date'}`;
                         itemId = item.id;
                         itemTitle = item.filename || 'Unknown File';
+                        
+                        // Store weight info for use in actions
+                        itemWeight = manualWeight;
                     } else if (itemType === 'experience') {
                         // Experience
                         itemContent = `<strong>${item.title || 'Unknown Title'}</strong> at ${item.company || 'Unknown Company'} - ${item.start_date || 'Unknown Date'}`;
@@ -2280,6 +2294,23 @@
                                 ${itemContent}
                             </div>
                             <div class="database-item-actions">
+                                ${itemType === 'document' ? `
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-right: 10px;">
+                                        <label style="font-size: 11px; color: #666;">Weight:</label>
+                                        <input type="number" 
+                                               id="weight-${itemId}" 
+                                               value="${itemWeight || 1.0}" 
+                                               min="0.1" 
+                                               max="10.0" 
+                                               step="0.1" 
+                                               style="width: 60px; padding: 1px 3px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px;"
+                                               onchange="updateDocumentWeight(${itemId}, this.value)"
+                                               title="Manual weight multiplier (0.1x - 10.0x)">
+                                        <button class="btn" style="padding: 1px 4px; font-size: 10px; background: #17a2b8; color: white; border: none; border-radius: 3px;" 
+                                                onclick="getDocumentWeightInfo(${itemId})" 
+                                                title="Weight information">ℹ️</button>
+                                    </div>
+                                ` : ''}
                                 <button class="view-item-btn" onclick="viewItem('${itemType}', ${itemId})">👁️ View</button>
                                 <button class="delete-item-btn" onclick="deleteItem('${itemType}', ${itemId})">🗑️ Delete</button>
                             </div>
@@ -3831,6 +3862,70 @@
             showGenerationTab('single');
             // ... existing code ...
         });
+
+        // Document weight management functions
+        async function updateDocumentWeight(documentId, newWeight) {
+            try {
+                const weight = parseFloat(newWeight);
+                if (weight <= 0) {
+                    alert('Weight must be positive');
+                    return;
+                }
+                
+                const response = await fetch(`/documents/${documentId}/weight`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ manual_weight: weight })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showStatus(`✅ Updated weight for ${result.filename} to ${result.new_manual_weight}x`, 'success');
+                    // Update the display
+                    const weightSpan = document.querySelector(`#weight-${documentId}`).parentNode.querySelector('span');
+                    if (weightSpan) {
+                        weightSpan.textContent = `Current: ${result.new_manual_weight}x`;
+                    }
+                } else {
+                    showStatus(`❌ Failed to update weight: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Error updating weight: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getDocumentWeightInfo(documentId) {
+            try {
+                const response = await fetch(`/documents/${documentId}/weight`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const info = result.weight_info;
+                    alert(`📊 Weight Info: ${result.filename}
+
+🎯 Current Settings:
+• Manual Weight: ${info.manual_weight}x
+• Document Type: ${result.document_type} (${info.type_weight}x)
+• Final Weight: ${info.final_calculated_weight.toFixed(2)}x
+
+💡 Weight Guidelines:
+• 🔥 Exceptional (got you a job): 3.0x - 5.0x
+• ⭐ High quality examples: 2.0x - 3.0x  
+• 📈 Important documents: 1.5x - 2.0x
+• ⚖️ Normal weight: 1.0x
+• 📉 Less relevant: 0.5x - 0.8x
+
+Formula: Base × Type × Recency × Manual`);
+                } else {
+                    alert(`❌ Failed to get weight info: ${result.detail}`);
+                }
+            } catch (error) {
+                alert(`❌ Error getting weight info: ${error.message}`);
+            }
+        }
 
         // On page load, ensure correct visibility
         showTab('generate');

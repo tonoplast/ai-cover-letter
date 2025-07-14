@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv:*)",
+      "Bash(python -m pytest tests/unit/test_document_weighting.py -v)",
+      "Bash(pytest:*)",
+      "Bash(find:*)"
+    ],
+    "deny": []
+  }
+}

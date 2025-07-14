@@ -3,20 +3,44 @@
 Test script for document parsing and logo recognition using LLM and YOLOv8 (OpenLogo) or Vision LLM (Google Gemini)
 """
 import os
+import pytest
 from pathlib import Path
 from PIL import Image
 from app.services.document_parser import DocumentParser
 from app.services.enhanced_document_parser import recognize_logos_openlogo, recognize_logos_vision_llm
 
+@pytest.fixture
+def pdf_path():
+    """Fixture to provide a test PDF path"""
+    uploads_dir = Path("uploads")
+    if uploads_dir.exists():
+        pdfs = [f for f in uploads_dir.iterdir() if f.suffix.lower() == ".pdf"]
+        if pdfs:
+            return pdfs[0]
+    
+    # Create a dummy PDF path for testing
+    return Path("test_document.pdf")
+
 def test_llm_document_parsing(pdf_path, document_type="cv"):
-    print(f"Testing LLM document parsing for: {pdf_path}")
+    """Test LLM document parsing functionality"""
+    if not pdf_path.exists():
+        pytest.skip(f"PDF file {pdf_path} not found")
+    
     parser = DocumentParser()
     result = parser.parse_document_with_llm(str(pdf_path), document_type, extract_images=False)
-    print("\n--- Parsed Content (truncated) ---\n")
-    print(result.get("content", "")[:1000])
-    print("\n--- Parsed Structured Data ---\n")
-    import json
-    print(json.dumps(result.get("parsed_data", {}), indent=2, ensure_ascii=False))
+    
+    # Verify the result structure
+    assert isinstance(result, dict), "Result should be a dictionary"
+    assert "content" in result, "Result should contain 'content' key"
+    assert "parsed_data" in result, "Result should contain 'parsed_data' key"
+    
+    # Verify content is not empty
+    content = result.get("content", "")
+    assert len(content) > 0, "Parsed content should not be empty"
+    
+    # Verify parsed data structure
+    parsed_data = result.get("parsed_data", {})
+    assert isinstance(parsed_data, dict), "Parsed data should be a dictionary"
 
 def test_logo_recognition(folder="test_logos", method="vision_llm", model_path="openlogo_yolov8.pt", vision_model="gemini-1.5-flash"):
     logo_dir = Path(folder)

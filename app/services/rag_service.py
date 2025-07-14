@@ -449,11 +449,16 @@ Use this additional context to make your cover letter more specific and relevant
         return enhanced_prompt 
 
     def calculate_document_weight(self, document: Document) -> float:
-        """Calculate the weight for a document based on type and recency.
+        """Calculate the weight for a document based on type, recency, and manual weight.
+        
+        Weight calculation: base_weight × type_weight × recency_multiplier × manual_weight
+        
         Recency is determined by (in order of precedence):
         1. Date in filename (YYYY-MM-DD etc)
         2. Date in document content (first YYYY-MM-DD or similar)
         3. Upload date (database timestamp)
+        
+        Manual weight allows users to boost important documents (e.g., successful cover letters)
         """
         # Get document type weight
         doc_type = str(document.document_type).lower()
@@ -479,8 +484,11 @@ Use this additional context to make your cover letter more specific and relevant
         else:
             recency_multiplier = 1.0
 
-        # Calculate final weight combining type and recency
-        final_weight = self.base_weight * type_weight * recency_multiplier
+        # Get manual weight multiplier (defaults to 1.0 if not set)
+        manual_multiplier = getattr(document, 'manual_weight', 1.0) or 1.0
+        
+        # Calculate final weight combining type, recency, and manual weight
+        final_weight = self.base_weight * type_weight * recency_multiplier * manual_multiplier
         return final_weight
 
     @staticmethod

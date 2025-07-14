@@ -5,6 +5,7 @@ Test to verify Ollama model loading in the frontend
 
 import requests
 import json
+import pytest
 
 def test_ollama_frontend():
     """Test Ollama model loading behavior"""
@@ -74,7 +75,8 @@ def test_ollama_frontend():
     print("   3. Try selecting 'ollama' in the AI Model Provider dropdown")
     print("   4. The AI Model dropdown should appear with available models")
     
-    return True
+    # Test completed successfully
+    assert True
 
 if __name__ == "__main__":
     test_ollama_frontend() 

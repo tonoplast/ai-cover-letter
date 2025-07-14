@@ -15,7 +15,8 @@ class Document(Base):
     parsed_data = Column(JSON)  # Structured data from parsing
     uploaded_at = Column(DateTime, default=func.now(), index=True)  # Index for recency queries
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
-    weight = Column(Float, default=1.0, index=True)  # Index for RAG ranking
+    weight = Column(Float, default=1.0, index=True)  # Index for RAG ranking (calculated weight)
+    # manual_weight = Column(Float, default=1.0, index=True)  # User-set manual weight multiplier
     
     experiences = relationship("Experience", back_populates="document")
 

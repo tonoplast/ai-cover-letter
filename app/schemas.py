@@ -12,9 +12,13 @@ class DocumentResponse(BaseModel):
     document_type: str
     uploaded_at: datetime
     last_updated: datetime
+    manual_weight: Optional[float] = 1.0
     
     class Config:
         from_attributes = True
+
+class DocumentWeightUpdate(BaseModel):
+    manual_weight: float
 
 class ExperienceCreate(BaseModel):
     title: str
